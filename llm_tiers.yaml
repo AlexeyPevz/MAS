@@ -1,0 +1,24 @@
+# Defines lists of language models ordered by price.  When invoking a tool
+# function that requires an LLM, the system will select the cheapest model
+# available for the current tier and attempt to use it.  If the result is
+# unsatisfactory or an error occurs, the callback can request a higher tier.
+
+cheap:
+  # Low‑cost models for routine tasks.  Adjust these identifiers based on
+  # models available via your provider (e.g. OpenRouter).
+  - openrouter/nous-hermes-2-mixtral-8x7b
+  - openrouter/codellama-34b
+  - openrouter/yandex-gpt-lite
+
+standard:
+  # Mid‑range models offering a balance of cost and quality.
+  - openrouter/gpt-3.5-turbo
+  - openrouter/yandex-gpt
+  - openrouter/llama3-70b
+
+premium:
+  # High‑quality models used when the budget allows.  These models are more
+  # expensive but provide better reasoning and code generation capabilities.
+  - openrouter/gpt-4o
+  - openrouter/yandex-gpt-pro
+  - openrouter/gpt-4-turbo
