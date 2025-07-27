@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 
 # Virtual environment directories
+env.backup
 .env
 venv/
 env/
