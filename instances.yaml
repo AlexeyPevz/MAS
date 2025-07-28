@@ -1,6 +1,0 @@
-# Placeholder for deployed MAS instances.  Each entry should contain the
-# instance identifier, type (internal or client) and the endpoint where the
-# instance can be reached.  This file is updated by the Instance‑Factory
-# tool when new systems are deployed.
-
-instances: {}

@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-import n8n_client
+from tools import n8n_client
 
 
 class DummyResponse:
@@ -25,7 +25,7 @@ def test_create_and_activate_workflow(monkeypatch):
 
     monkeypatch.setattr(n8n_client.requests, 'post', fake_post)
 
-    client = n8n_client.N8nClient('http://host', 'key')
+    client = n8n_client.N8NClient('http://host', 'key')
     result = client.create_workflow({'name': 'demo'})
     assert result == {'id': '42'}
     assert called['url'].endswith('/workflows')
