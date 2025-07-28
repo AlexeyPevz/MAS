@@ -10,6 +10,7 @@ fact_checker.py
 """
 
 from typing import List, Dict, Any
+import logging
 
 
 def validate_sources(sources: List[Dict[str, Any]]) -> bool:
@@ -36,3 +37,25 @@ def validate_sources(sources: List[Dict[str, Any]]) -> bool:
             if word in url.lower() or word in title.lower():
                 return False
     return True
+
+
+def check_facts(results: List[Dict[str, Any]]) -> bool:
+    """Проверить факты на основе сниппетов."""
+
+    snippets = [r.get("snippet", "") for r in results if r.get("snippet")]
+    if len(snippets) < 2:
+        logging.info("[FactChecker] недостаточно данных для кросс-проверки")
+        return False
+    return cross_reference(snippets)
+
+
+def cross_reference(snippets: List[str]) -> bool:
+    """Проверить совпадения фраз в нескольких источниках."""
+
+    seen = set()
+    for text in snippets:
+        key = text.strip().lower()[:50]
+        if key in seen:
+            return True
+        seen.add(key)
+    return False
