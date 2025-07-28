@@ -7,7 +7,6 @@ instance_factory.py
 docker‑compose и регистрирует endpoint в `config/instances.yaml`.
 """
 
-import os
 import subprocess
 import yaml  # type: ignore
 from pathlib import Path
