@@ -30,6 +30,7 @@ except Exception:  # pragma: no cover - optional dependency
             pass
 
 from .callback_matrix import handle_event
+from .studio_logger import log_interaction
 
 
 class RootGroupChatManager(GroupChatManager):
@@ -64,6 +65,7 @@ class RootGroupChatManager(GroupChatManager):
             return
         self.groupchat.messages.append({"sender": sender, "message": message})
         receivers = self.routing.get(sender, [])
+        log_interaction(sender, receivers, message)
         for name in receivers:
             agent = self._agents.get(name)
             if agent is not None:
