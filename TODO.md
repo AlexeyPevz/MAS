@@ -6,7 +6,7 @@
 ## 0. CI / базовая инфраструктура
 - [x] Добавить **GitHub Actions**: linters (`flake8`, `mypy`), `pytest`. (Docker-образ и GHCR остаётся)
 - [x] Подготовить **Dockerfile.prod** / `docker-compose.prod.yml` с зависимостями (Postgres, Redis, Prometheus).
-- [ ] Настроить автопубликацию образа в **GHCR**.
+- [x] Настроить автопубликацию образа в **GHCR**.
 
 ## 1. Зависимости и базовое окружение
 - [x] Обновить `requirements.txt` (✅ autogen добавлен).
