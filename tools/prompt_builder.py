@@ -34,6 +34,60 @@ def git_commit(file_paths: Iterable[str], message: str) -> None:
     subprocess.run(["git", "commit", "-m", message], cwd=REPO_ROOT)
 
 
+def _version_path(agent_name: str) -> Path:
+    """Return directory for storing prompt versions."""
+    if agent_name.lower() == "global":
+        base = REPO_ROOT / "prompts" / "global"
+    else:
+        base = REPO_ROOT / "prompts" / "agents" / agent_name
+    return base / "versions"
+
+
+def save_prompt_version(agent_name: str) -> Path:
+    """Сохранить текущий вариант промпта в директорию ``versions``.
+
+    Returns the path of the version file.
+    """
+    if agent_name.lower() == "global":
+        path = REPO_ROOT / "prompts" / "global" / "system.md"
+    else:
+        path = REPO_ROOT / "prompts" / "agents" / agent_name / "system.md"
+
+    if not path.exists():
+        raise FileNotFoundError(f"Prompt not found: {agent_name}")
+
+    versions_dir = _version_path(agent_name)
+    versions_dir.mkdir(parents=True, exist_ok=True)
+    existing = sorted(versions_dir.glob("v*.md"))
+    next_index = len(existing) + 1
+    version_file = versions_dir / f"v{next_index}.md"
+    write_prompt(str(version_file), [read_prompt(str(path))])
+    git_commit([str(version_file.relative_to(REPO_ROOT))], f"Snapshot {agent_name} prompt v{next_index}")
+    return version_file
+
+
+def list_prompt_versions(agent_name: str) -> list[str]:
+    """Вернуть список доступных версий для промпта."""
+    versions_dir = _version_path(agent_name)
+    if not versions_dir.exists():
+        return []
+    return sorted(p.name for p in versions_dir.glob("v*.md"))
+
+
+def diff_versions(agent_name: str, a: str, b: str) -> str:
+    """Показать diff между двумя версиями промпта."""
+    base = _version_path(agent_name).parent
+    file_a = base / a
+    file_b = base / b
+    result = subprocess.run(
+        ["git", "diff", "--no-index", str(file_a), str(file_b)],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout
+
+
 def create_agent_prompt(agent_name: str, content: str) -> None:
     """Создать системный промпт для нового агента.
 
@@ -68,6 +122,9 @@ def update_agent_prompt(agent_name: str, content: str, *, allow_global: bool = F
         path = REPO_ROOT / "prompts" / "global" / "system.md"
     else:
         path = REPO_ROOT / "prompts" / "agents" / agent_name / "system.md"
+
+    if path.exists():
+        save_prompt_version(agent_name)
 
     write_prompt(str(path), [content])
     git_commit([str(path.relative_to(REPO_ROOT))], f"Update system prompt for {agent_name}")
