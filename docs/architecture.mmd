@@ -1,0 +1,48 @@
+```mermaid
+flowchart TD
+    subgraph Users
+        U1(User)
+    end
+
+    subgraph MAS[Root-MAS Core]
+        direction LR
+        C(Communicator)
+        M(Meta)
+        CO(Coordination)
+        PB(Prompt-Builder)
+        MS(Model-Selector)
+        AB(Agent-Builder)
+        MT(Multi-Tool)
+    end
+
+    subgraph Stores
+        R[(Redis)]
+        P[(Postgres)]
+        Ch[(ChromaDB)]
+    end
+
+    subgraph Observability
+        Prom[Prometheus]
+    end
+
+    U1 -- "Telegram / HTTP" --> C
+    C --> M
+    M --> CO
+    CO --> PB & MS & MT & AB
+    PB --> |prompts| Git((Git))
+    MS --> LLMSel[LLM Provider]
+    MT --> ExtAPI[External APIs]
+    AB --> NewA[Dynamic Agents]
+
+    ExtAPI --> R
+    MT --> R
+    CO --> R
+    NewA --> R
+    NewA --> Ch
+
+    R --> Prom
+    P --> Prom
+    Ch --> Prom
+
+    classDef store fill:#e8e8e8,stroke:#555;
+    class R,P,Ch store;

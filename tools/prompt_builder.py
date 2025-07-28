@@ -102,6 +102,45 @@ def create_agent_prompt(agent_name: str, content: str) -> None:
     git_commit([str(path.relative_to(REPO_ROOT))], f"Add system prompt for agent {agent_name}")
 
 
+# ---------------------------------------------------------------------------
+# Task-specific prompts
+# ---------------------------------------------------------------------------
+
+
+def _task_file(agent_name: str, task: str) -> Path:
+    """Return path to a task prompt file (task_<task>.md)."""
+
+    filename = f"task_{task}.md"
+    if agent_name.lower() == "global":
+        raise ValueError("Global agent does not support task-specific prompts.")
+    return REPO_ROOT / "prompts" / "agents" / agent_name / filename
+
+
+def create_task_prompt(agent_name: str, task: str, content: str) -> None:
+    """Create a new task prompt for an agent."""
+
+    path = _task_file(agent_name, task)
+    write_prompt(str(path), [content])
+    git_commit([str(path.relative_to(REPO_ROOT))], f"Add task prompt '{task}' for agent {agent_name}")
+
+
+def update_task_prompt(agent_name: str, task: str, content: str) -> None:
+    """Update existing task prompt, saving previous version."""
+
+    path = _task_file(agent_name, task)
+    if path.exists():
+        # Save snapshot to versions/<task>/vN.md
+        versions_dir = path.parent / "versions" / task
+        versions_dir.mkdir(parents=True, exist_ok=True)
+        existing = sorted(versions_dir.glob("v*.md"))
+        version_file = versions_dir / f"v{len(existing)+1}.md"
+        write_prompt(str(version_file), [read_prompt(str(path))])
+        git_commit([str(version_file.relative_to(REPO_ROOT))], f"Snapshot {agent_name}:{task} v{len(existing)+1}")
+
+    write_prompt(str(path), [content])
+    git_commit([str(path.relative_to(REPO_ROOT))], f"Update task prompt '{task}' for agent {agent_name}")
+
+
 def update_agent_prompt(agent_name: str, content: str, *, allow_global: bool = False) -> None:
     """Update an existing system prompt and commit the change.
 
@@ -115,7 +154,9 @@ def update_agent_prompt(agent_name: str, content: str, *, allow_global: bool = F
         Explicitly allow editing of the global prompt.
     """
 
-    if agent_name.lower() == "global" and not allow_global:
+    is_global = agent_name.lower() == "global"
+
+    if is_global and not allow_global:
         raise PermissionError("Редактирование глобального промпта запрещено.")
 
     if agent_name.lower() == "global":
@@ -124,6 +165,24 @@ def update_agent_prompt(agent_name: str, content: str, *, allow_global: bool = F
         path = REPO_ROOT / "prompts" / "agents" / agent_name / "system.md"
 
     if path.exists():
+        # Для глобального промпта запрашиваем подтверждение и логируем diff
+        if is_global:
+            from .security import approve_global_prompt_change
+
+            current = read_prompt(str(path))
+            import difflib, textwrap
+
+            diff_text = "\n".join(
+                difflib.unified_diff(
+                    textwrap.dedent(current).splitlines(),
+                    textwrap.dedent(content).splitlines(),
+                    fromfile="before", tofile="after", lineterm="",
+                )
+            )
+
+            if not approve_global_prompt_change(diff_text):
+                raise PermissionError("Global prompt update rejected by approver")
+
         save_prompt_version(agent_name)
 
     write_prompt(str(path), [content])
