@@ -50,7 +50,7 @@ root_mas/
 ## Быстрый старт
 
 1. Клонируйте репозиторий и перейдите в директорию `root_mas`.
-2. Создайте файл `.env` и заполните переменные (`OPENROUTER_API_KEY`, `YA_GPT_KEY`, `YA_SPEECHKIT_KEY`, `TELEGRAM_TOKEN`, и т. д.).
+2. Скопируйте `.env.example` в `.env` и заполните переменные (`OPENROUTER_API_KEY`, `YA_GPT_KEY`, `YA_SPEECHKIT_KEY`, `TELEGRAM_TOKEN` и т. д.).
 3. Установите зависимости: `pip install autogen pyyaml redis psycopg2 chromadb` и другие, необходимые для вашего окружения.
 4. Запустите базовый цикл: `python run.py --goal "echo"`. Скрипт выведет лог запуска Root GroupChat.
 5. Используйте n8n и Telegram‑бот, как описано в плане работ, чтобы постепенно добавлять функциональность.

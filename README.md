@@ -31,7 +31,7 @@ root_mas/
 ## How to use
 
 1.  Install dependencies.  At minimum you will need Python 3.9+ and the `autogen` library.  Additional packages such as `pyyaml` and `redis` may be required depending on which features you enable.
-2.  Set up your environment variables in a `.env` file at the project root.  This file should include API keys for OpenRouter, Yandex GPT, SpeechKit, Telegram, etc.
+2.  Copy `.env.example` to `.env` at the project root and fill in the required values.  This file lists API keys for OpenRouter, Yandex GPT/SpeechKit, Telegram and database settings used by the compose files.
 3.  Run an echo test:
 
     ```bash
