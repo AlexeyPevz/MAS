@@ -116,3 +116,16 @@ def outgoing_to_telegram(message: str) -> None:
         _telegram_sender(message)
     else:
         print(f"[TG] {message}")
+
+
+def research_validation_cycle(query: str) -> None:
+    """Выполнить цикл исследование → валидация."""
+
+    logging.info("[callback] research_validation_cycle: %s", query)
+    from .researcher import search_and_store
+
+    results = search_and_store(query)
+    if results:
+        print(f"[ResearchFlow] сохранено {len(results)} результатов по запросу '{query}'")
+    else:
+        print(f"[ResearchFlow] не удалось подтвердить источники для '{query}'")

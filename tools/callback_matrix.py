@@ -16,6 +16,7 @@ from .callbacks import (
     retry_with_higher_tier_callback,
     budget_guard_callback,
     outgoing_to_telegram,
+    research_validation_cycle,
 )
 
 
@@ -28,6 +29,7 @@ CALLBACK_MATRIX: Dict[str, Callable[..., None]] = {
     "RETRY_WITH_HIGHER_TIER": retry_with_higher_tier_callback,
     "BUDGET_GUARD": budget_guard_callback,
     "OUTGOING_TO_TELEGRAM": outgoing_to_telegram,
+    "RESEARCH_TASK": research_validation_cycle,
 }
 
 
