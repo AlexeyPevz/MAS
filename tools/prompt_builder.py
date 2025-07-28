@@ -154,7 +154,9 @@ def update_agent_prompt(agent_name: str, content: str, *, allow_global: bool = F
         Explicitly allow editing of the global prompt.
     """
 
-    if agent_name.lower() == "global" and not allow_global:
+    is_global = agent_name.lower() == "global"
+
+    if is_global and not allow_global:
         raise PermissionError("Редактирование глобального промпта запрещено.")
 
     if agent_name.lower() == "global":
@@ -163,6 +165,24 @@ def update_agent_prompt(agent_name: str, content: str, *, allow_global: bool = F
         path = REPO_ROOT / "prompts" / "agents" / agent_name / "system.md"
 
     if path.exists():
+        # Для глобального промпта запрашиваем подтверждение и логируем diff
+        if is_global:
+            from .security import approve_global_prompt_change
+
+            current = read_prompt(str(path))
+            import difflib, textwrap
+
+            diff_text = "\n".join(
+                difflib.unified_diff(
+                    textwrap.dedent(current).splitlines(),
+                    textwrap.dedent(content).splitlines(),
+                    fromfile="before", tofile="after", lineterm="",
+                )
+            )
+
+            if not approve_global_prompt_change(diff_text):
+                raise PermissionError("Global prompt update rejected by approver")
+
         save_prompt_version(agent_name)
 
     write_prompt(str(path), [content])

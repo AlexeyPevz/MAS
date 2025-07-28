@@ -114,11 +114,35 @@ def approve_global_prompt_change(diff: str) -> bool:
     message = (
         "[Security] Требуется подтверждение изменения глобального промпта:\n" + diff
     )
+    # 1) Отправляем diff в Telegram (если настроен sender)
     try:
         outgoing_to_telegram(message)
     except Exception:
         pass
 
+    # 2) Записываем diff в git-аудит для последующего просмотра
+    try:
+        from pathlib import Path
+        import subprocess
+        from datetime import datetime
+
+        repo_root = Path(__file__).resolve().parents[1]
+        audits_dir = repo_root / "audit" / "prompt_changes"
+        audits_dir.mkdir(parents=True, exist_ok=True)
+        ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        patch_file = audits_dir / f"global_prompt_{ts}.patch"
+        patch_file.write_text(diff, encoding="utf-8")
+
+        # Коммитим патч-файл
+        subprocess.run(["git", "add", str(patch_file.relative_to(repo_root))], cwd=repo_root)
+        subprocess.run(
+            ["git", "commit", "-m", f"audit: global prompt change {ts}"], cwd=repo_root, capture_output=True
+        )
+    except Exception:
+        # Не критично, продолжаем
+        pass
+
+    # 3) Запрашиваем подтверждение в интерактивной консоли (fallback)
     print(message)
     try:
         answer = input("Apply changes? [y/N]: ").strip().lower()

@@ -30,7 +30,7 @@
 ## 4. Security / Secrets
 - [x] Реализовать `security.get_secret` через HashiCorp Vault (HTTP API).
 - [x] Добавить авто-refresh Vault token.
-- [ ] `approve_global_prompt_change` — отправка diff в Telegram-бот, запись аудита в git.
+- [x] `approve_global_prompt_change` — отправка diff в Telegram-бот, запись аудита в git.
 
 ## 5. Budget & LLM tiers
 - [x] Считывать цены токенов из конфиг-файла (`config/pricing.yaml`).
