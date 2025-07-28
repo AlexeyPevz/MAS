@@ -9,7 +9,6 @@ n8n_client.py
 """
 
 import os
-import json
 from typing import Dict, Any, Optional
 
 # В реальной реализации вам понадобятся requests или aiohttp
@@ -19,12 +18,19 @@ except ImportError:
     requests = None  # type: ignore
 
 
+TIMEOUT = 10
+
+
 class N8NClient:
-    def __init__(self, base_url: str, api_key: str):
-        self.base_url = base_url.rstrip('/')
-        self.api_key = api_key
+    """Минималистичный клиент для работы с API n8n."""
+
+    def __init__(self, base_url: str | None = None, api_key: str | None = None) -> None:
         if requests is None:
-            raise RuntimeError("Библиотека requests не установлена. Установите её для работы n8n_client.")
+            raise RuntimeError(
+                "Библиотека requests не установлена. Установите её для работы n8n_client."
+            )
+        self.base_url = (base_url or os.getenv("N8N_URL", "http://localhost:5678")).rstrip("/")
+        self.api_key = api_key or os.getenv("N8N_API_KEY", "")
 
     def _headers(self) -> Dict[str, str]:
         return {
@@ -43,10 +49,12 @@ class N8NClient:
         """
         url = f"{self.base_url}/api/v1/workflows"
         try:
-            response = requests.post(url, headers=self._headers(), json=workflow_json)
+            response = requests.post(
+                url, headers=self._headers(), json=workflow_json, timeout=TIMEOUT
+            )
             response.raise_for_status()
             return response.json()
-        except Exception as exc:
+        except Exception as exc:  # pragma: no cover - network errors
             print(f"[n8n_client] Ошибка при создании workflow: {exc}")
             return None
 
@@ -61,10 +69,10 @@ class N8NClient:
         """
         url = f"{self.base_url}/api/v1/workflows/{workflow_id}/activate"
         try:
-            response = requests.post(url, headers=self._headers())
+            response = requests.post(url, headers=self._headers(), timeout=TIMEOUT)
             response.raise_for_status()
             return True
-        except Exception as exc:
+        except Exception as exc:  # pragma: no cover - network errors
             print(f"[n8n_client] Ошибка при активации workflow: {exc}")
             return False
 

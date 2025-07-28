@@ -8,6 +8,7 @@ wf_builder.py
 передаёт её клиенту через `n8n_client`.
 """
 
+import os
 from typing import Dict, Any
 
 
@@ -44,7 +45,7 @@ def generate_n8n_json(spec: str) -> Dict[str, Any]:
     return workflow
 
 
-def create_workflow(spec: str, n8n_base_url: str, api_key: str) -> Any:
+def create_workflow(spec: str, n8n_base_url: str | None = None, api_key: str | None = None) -> Any:
     """Создать и активировать workflow в n8n.
 
     Args:
@@ -57,8 +58,10 @@ def create_workflow(spec: str, n8n_base_url: str, api_key: str) -> Any:
     """
     from .n8n_client import N8NClient
 
+    base_url = n8n_base_url or os.getenv("N8N_URL", "http://localhost:5678")
+    key = api_key or os.getenv("N8N_API_KEY", "")
     workflow_json = generate_n8n_json(spec)
-    client = N8NClient(n8n_base_url, api_key)
+    client = N8NClient(base_url, key)
     result = client.create_workflow(workflow_json)
     if result and result.get("id"):
         workflow_id = result["id"]
