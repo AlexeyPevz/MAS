@@ -7,7 +7,7 @@ from typing import Any
 # что позволит CI выявить проблему на этапе установки зависимостей.
 from autogen.agentchat import ConversableAgent
 
-from prompt_io import read_prompt
+from tools.prompt_io import read_prompt
 
 # New: helper to get task-specific prompt path
 
