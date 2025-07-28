@@ -1,0 +1,56 @@
+
+digraph G {
+    rankdir=TB;
+    node [shape=box, style=rounded, fontname="Arial"];
+    subgraph cluster_interface {
+        label="Interface";
+        telegram [label="Telegram\nBot" shape=box];
+        studio [label="AutoGen\nStudio" shape=box];
+    }
+    subgraph cluster_cognitive {
+        label="Cognitive Layer";
+        meta [label="Meta"];
+        coord [label="Coordination"];
+        pb [label="Prompt Builder"];
+        ms [label="Model Selector"];
+        ab [label="Agent Builder"];
+        ifac [label="Instance Factory"];
+        res [label="Researcher"];
+        fc [label="Fact Checker"];
+        mt [label="MultiTool"];
+        wf [label="WF Builder"];
+        wab [label="WebApp Builder"];
+        comm [label="Communicator"];
+    }
+    subgraph cluster_integration {
+        label="Integration";
+        n8n [label="n8n"];
+        apis [label="External APIs"];
+        gptp [label="GPT-Pilot"];
+    }
+    subgraph cluster_memory {
+        label="Memory & Data";
+        redis [label="Redis"];
+        pg [label="PostgreSQL"];
+        chroma [label="ChromaDB"];
+    }
+    telegram -> meta;
+    studio -> meta;
+    meta -> coord;
+    coord -> pb;
+    pb -> ms;
+    ms -> ab;
+    ab -> ifac;
+    ifac -> wf;
+    wf -> n8n;
+    meta -> res;
+    res -> fc;
+    fc -> mt;
+    mt -> apis;
+    meta -> wab;
+    wab -> gptp;
+    coord -> redis;
+    meta -> pg;
+    meta -> chroma;
+}
+
