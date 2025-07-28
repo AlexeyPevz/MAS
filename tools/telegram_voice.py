@@ -15,6 +15,8 @@ telegram_voice.py
 
 import os
 import logging
+import queue
+import threading
 from dataclasses import dataclass
 from typing import Optional, Dict, Any, Callable
 
@@ -128,7 +130,7 @@ class TelegramVoiceBot:
         сообщения пользователя (echo).
     """
 
-    def __init__(self, token: str, speechkit: SpeechKitClient, forward_callback: Optional[Callable[[str], Optional[str]]] = None):
+    def __init__(self, token: str, speechkit: SpeechKitClient, forward_callback: Optional[Callable[[str], Optional[str]]] = None, *, use_webhook: bool = False, webhook_url: str | None = None, listen_port: int = 8000):
         if Bot is None:
             raise RuntimeError(
                 "Не установлена библиотека python-telegram-bot. Установите её для работы Telegram‑бота."
@@ -136,10 +138,19 @@ class TelegramVoiceBot:
         self.token = token
         self.speechkit = speechkit
         self.bot = Bot(token=token)
+        self._use_webhook = use_webhook
+        self._webhook_url = webhook_url or os.getenv("TG_WEBHOOK_URL")
+        self._listen_port = listen_port
+
         self.updater = Updater(token, use_context=True)
         dispatcher = self.updater.dispatcher
 
         self.forward_callback = forward_callback
+        self._out_queue: "queue.Queue[str]" = queue.Queue()
+
+        # start background thread for sending queued messages
+        threading.Thread(target=self._sender_loop, daemon=True).start()
+
         self._last_chat_id: Optional[int] = None
 
         dispatcher.add_handler(MessageHandler(Filters.voice, self.handle_voice))
@@ -184,33 +195,59 @@ class TelegramVoiceBot:
                 update.message.reply_text(reply)
 
     def run(self) -> None:
-        """Запустить цикл long‑polling."""
-        self.updater.start_polling()
+        """Запустить long-polling или webhook-режим."""
+
+        if self._use_webhook and self._webhook_url:
+            # set webhook and start flask-based server inside telegram bot api
+            self.updater.bot.set_webhook(url=self._webhook_url)
+            self.updater.start_webhook(listen="0.0.0.0", port=self._listen_port, url_path="")
+        else:
+            self.updater.start_polling()
+
         self.updater.idle()
 
     def send_message(self, text: str) -> None:
         """Send a message from MAS to the last active chat."""
         if not self._last_chat_id:
             return
-        audio = self.speechkit.tts(text)
-        if audio:
-            import io
+        self._out_queue.put(text)
 
-            self.bot.send_voice(chat_id=self._last_chat_id, voice=io.BytesIO(audio))
-        else:
-            self.bot.send_message(chat_id=self._last_chat_id, text=text)
+    # ------------------------------------------------------------------
+    # Internal
+    # ------------------------------------------------------------------
+
+    def _sender_loop(self) -> None:
+        while True:
+            text = self._out_queue.get()
+            if not self._last_chat_id:
+                continue
+            try:
+                audio = self.speechkit.tts(text)
+                if audio:
+                    import io
+
+                    self.bot.send_voice(chat_id=self._last_chat_id, voice=io.BytesIO(audio))
+                else:
+                    self.bot.send_message(chat_id=self._last_chat_id, text=text)
+            except Exception as exc:
+                logging.error("[TG] send error: %s", exc)
+            self._out_queue.task_done()
 
 
 def run_telegram_bot(
     token: str,
     speechkit_client: SpeechKitClient,
     forward_callback: Optional[Callable[[str], Optional[str]]] = None,
+    *,
+    use_webhook: bool = False,
+    webhook_url: str | None = None,
+    listen_port: int = 8000,
 ) -> None:
     """Create and run the Telegram voice bot."""
 
     from .callbacks import register_telegram_sender
 
-    bot = TelegramVoiceBot(token, speechkit_client, forward_callback)
+    bot = TelegramVoiceBot(token, speechkit_client, forward_callback, use_webhook=use_webhook, webhook_url=webhook_url, listen_port=listen_port)
     register_telegram_sender(bot.send_message)
     bot.run()
 

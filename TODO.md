@@ -45,7 +45,7 @@
 - [x] `instance_factory` — health-check (docker compose ps) и rollback on failure.
 - [x] `researcher` — SerpAPI backend + Redis cache with DuckDuckGo fallback.
 - [x] `fact_checker` — GPT-powered validation with Redis cache + heuristic fallback.
-- [ ] `telegram_voice` — перевести на web-hooks, очереди для TTS.
+- [x] `telegram_voice` — web-hook support + outgoing message queue.
 
 ## 7. Тесты
 - [x] Unit-тесты на каждую tool-функцию (базовые mock-free проверки).
