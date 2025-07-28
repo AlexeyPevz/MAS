@@ -1,0 +1,13 @@
+## Реестр инстансов MAS
+# Содержит записи о внутренних и клиентских развертываниях. Каждая запись
+# должна включать уникальный идентификатор, тип (internal или client),
+# адрес endpoint, дату создания и прочие метаданные. Этот файл может
+# обновляться Instance‑Factory агентом во время работы.
+
+instances:
+  # Пример записи:
+  # my_internal_instance:
+  #   type: internal
+  #   endpoint: "http://mas-internal.example.com"
+  #   created_at: "2025-07-27T00:00:00Z"
+  #   status: "running"

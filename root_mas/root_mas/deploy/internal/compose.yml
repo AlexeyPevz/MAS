@@ -1,0 +1,65 @@
+version: '3.8'
+
+# Docker Compose для развёртывания внутренней MAS. Использует общие
+# сервисы n8n, Redis, PostgreSQL и Chroma. Перед запуском создайте
+# файл .env в этой директории с необходимыми переменными.
+
+services:
+  autogen:
+    image: python:3.10-slim
+    volumes:
+      - ../../:/app
+    working_dir: /app/root_mas
+    command: ["python", "run.py", "--goal", "echo"]
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - postgres
+      - chroma
+    restart: unless-stopped
+
+  n8n:
+    image: n8nio/n8n:latest
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=false
+      - DB_TYPE=sqlite
+    volumes:
+      - n8n-data:/home/node/.n8n
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-mas}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-maspass}
+      - POSTGRES_DB=${POSTGRES_DB:-mas}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  chroma:
+    image: chromadb/chroma:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma-data:/chroma
+    restart: unless-stopped
+
+volumes:
+  n8n-data:
+  redis-data:
+  pg-data:
+  chroma-data:

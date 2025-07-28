@@ -1,0 +1,25 @@
+# Определение уровней LLM для каскадного выбора моделей.
+# Каждая секция содержит список моделей, отсортированный по возрастанию стоимости.
+# Используется функцией pick_config(tier, attempt) и callback retry_with_higher_tier.
+
+tiers:
+  cheap:
+    - name: "gpt-3.5-turbo"
+      provider: "openai"
+    - name: "llama3-8b-instruct"
+      provider: "openrouter"
+
+  standard:
+    - name: "gpt-4o"
+      provider: "openai"
+    - name: "gemini-pro"
+      provider: "google"
+
+  premium:
+    - name: "gpt-4o-long"
+      provider: "openai"
+    - name: "cldn-3-sonnet"
+      provider: "openrouter"
+
+# Максимальное количество повышений tier до отказа
+max_retries: 3

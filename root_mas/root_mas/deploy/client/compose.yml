@@ -1,0 +1,65 @@
+version: '3.8'
+
+# Docker Compose для развёртывания клиентской MAS. Использует выделенные
+# сервисы и уникальные ключи. Необходимо создать файл .env в этой
+# директории и указать клиентские токены (OpenRouter, Yandex, Telegram).
+
+services:
+  autogen:
+    image: python:3.10-slim
+    volumes:
+      - ../../:/app
+    working_dir: /app/root_mas
+    command: ["python", "run.py", "--goal", "echo"]
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - postgres
+      - chroma
+    restart: unless-stopped
+
+  n8n:
+    image: n8nio/n8n:latest
+    ports:
+      - "5679:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=false
+      - DB_TYPE=sqlite
+    volumes:
+      - n8n-data:/home/node/.n8n
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-mas_client}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-masclientpass}
+      - POSTGRES_DB=${POSTGRES_DB:-mas_client}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  chroma:
+    image: chromadb/chroma:latest
+    ports:
+      - "8001:8000"
+    volumes:
+      - chroma-data:/chroma
+    restart: unless-stopped
+
+volumes:
+  n8n-data:
+  redis-data:
+  pg-data:
+  chroma-data:
