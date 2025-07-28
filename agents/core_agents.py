@@ -3,10 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict
 
-try:
-    from autogen.agentchat import ConversableAgent
-except Exception:  # pragma: no cover - optional dependency
-    from agents.base import ConversableAgent  # type: ignore
+from autogen.agentchat import ConversableAgent
 
 from config_loader import AgentsConfig, AgentDefinition
 from .base import BaseAgent
