@@ -36,3 +36,15 @@ class CronScheduler:
         while True:
             self.scheduler.run_pending()
             time.sleep(1)
+
+
+def _heartbeat() -> None:
+    """Простая демонстрационная задача."""
+    logging.info("[cron] heartbeat")
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    cron = CronScheduler()
+    cron.add_job(_heartbeat, 60)
+    cron.run_forever()
