@@ -11,32 +11,113 @@ fact_checker.py
 
 from typing import List, Dict, Any
 import logging
+import json
+import hashlib
+import os
+from typing import Tuple
 
 
-def validate_sources(sources: List[Dict[str, Any]]) -> bool:
-    """Проверить достоверность списка источников.
+# Optional dependencies
+try:
+    import openai  # type: ignore
+except ImportError:  # pragma: no cover - optional
+    openai = None  # type: ignore
 
-    Args:
-        sources: список словарей с ключами 'url' и 'title'
+try:
+    from memory.redis_store import RedisStore
 
-    Returns:
-        True, если источники считаются надёжными, иначе False.
+    _REDIS = RedisStore()
+except Exception:  # pragma: no cover
+    _REDIS = None  # type: ignore
 
-    Note:
-        В этой заглушке мы считаем валидными источники, содержащие
-        https:// в URL и не содержащие подозрительных доменов. Реальная
-        проверка должна быть гораздо сложнее.
-    """
+
+def _cache_get(key: str) -> Tuple[bool, list[str]] | None:  # noqa: D401
+    if _REDIS is None:
+        return None
+    data = _REDIS.get(key)
+    if data:
+        try:
+            flag, issues = json.loads(data)
+            return bool(flag), issues
+        except Exception:
+            return None
+    return None
+
+
+def _cache_set(key: str, value: Tuple[bool, list[str]], ttl: int = 86400) -> None:
+    if _REDIS is None:
+        return
+    try:
+        _REDIS.set(key, json.dumps(value, ensure_ascii=False), ttl)
+    except Exception:
+        pass
+
+
+def _hash_sources(sources: List[Dict[str, Any]]) -> str:
+    m = hashlib.sha256()
+    m.update(json.dumps(sources, sort_keys=True).encode("utf-8"))
+    return m.hexdigest()
+
+
+def _gpt_validate(sources: List[Dict[str, Any]]) -> Tuple[bool, list[str]]:
+    if openai is None:
+        raise RuntimeError("openai package not available")
+
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY not set")
+
+    openai.api_key = api_key
+    prompt = (
+        "You are a fact-checker. Evaluate the reliability of the following sources.\n"
+        "Return JSON with keys 'valid' (true/false) and 'issues' (array of strings).\n"
+        f"Sources:\n{json.dumps(sources, ensure_ascii=False, indent=2)}"
+    )
+    try:
+        resp = openai.ChatCompletion.create(
+            model=os.getenv("FACTCHECK_MODEL", "gpt-3.5-turbo"),
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0,
+        )
+        content = resp.choices[0].message["content"]  # type: ignore[index]
+        data = json.loads(content)
+        return bool(data.get("valid", False)), data.get("issues", [])
+    except Exception as exc:
+        logging.warning("[FactChecker] GPT validation error: %s", exc)
+        raise
+
+
+def _heuristic_validate(sources: List[Dict[str, Any]]) -> Tuple[bool, list[str]]:
     bad_keywords = ["clickbait", "fake", "suspicious"]
+    issues: list[str] = []
     for src in sources:
         url = src.get("url", "")
         title = src.get("title", "")
         if not url.startswith("https://"):
-            return False
+            issues.append(f"Insecure URL: {url}")
         for word in bad_keywords:
             if word in url.lower() or word in title.lower():
-                return False
-    return True
+                issues.append(f"Potentially unreliable ({word}) in {url}")
+    return (not issues), issues
+
+
+def validate_sources(sources: List[Dict[str, Any]]) -> bool:
+    """Validate list of sources using GPT (fallback heuristic)."""
+
+    key = f"fact:{_hash_sources(sources)}"
+    cached = _cache_get(key)
+    if cached is not None:
+        return cached[0]
+
+    try:
+        valid, issues = _gpt_validate(sources)
+    except Exception:
+        valid, issues = _heuristic_validate(sources)
+
+    _cache_set(key, (valid, issues))
+    if not valid:
+        logging.info("[FactChecker] issues: %s", issues)
+    return valid
 
 
 def check_facts(results: List[Dict[str, Any]]) -> bool:

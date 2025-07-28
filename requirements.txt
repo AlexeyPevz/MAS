@@ -8,3 +8,4 @@ schedule
 prometheus_client
 hvac
 gitpython
+autogen

@@ -13,6 +13,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Dict
 
+# cost estimation
+from .pricing import estimate_cost
+from .budget_storage import record_expense
+
 
 @dataclass
 class BudgetManager:
@@ -24,6 +28,22 @@ class BudgetManager:
         """Добавить расход к сегодняшнему счёту."""
         self._reset_if_needed()
         self.spent_today += amount
+        record_expense(datetime.utcnow(), amount)
+
+    # ------------------------------------------------------------------
+    # High-level helper
+    # ------------------------------------------------------------------
+
+    def add_usage(self, model: str, prompt_tokens: int, completion_tokens: int = 0) -> float:
+        """Учитыть использование токенов и вернуть рассчитанную стоимость.
+
+        Это обёртка над :func:`estimate_cost`.  Возвращённое значение (USD)
+        автоматически добавляется к ежедневному счётчику.
+        """
+
+        cost = estimate_cost(model, prompt_tokens, completion_tokens)
+        self.add_expense(cost)
+        return cost
 
     def _reset_if_needed(self) -> None:
         if datetime.utcnow() - self.last_reset >= timedelta(days=1):

@@ -1,0 +1,22 @@
+# Стоимость токенов (USD) за 1K токенов ввода/вывода
+# Значения приблизительные, их можно изменить под реальные тарифы.
+
+models:
+  gpt-3.5-turbo:
+    prompt: 0.5   # $0.50 / 1K input tokens
+    completion: 1.0 # $1.00 / 1K output tokens
+  llama3-8b-instruct:
+    prompt: 0.0002
+    completion: 0.0004
+  gpt-4o:
+    prompt: 0.01
+    completion: 0.03
+  gemini-pro:
+    prompt: 0.004
+    completion: 0.004
+  gpt-4o-long:
+    prompt: 0.02
+    completion: 0.06
+  cldn-3-sonnet:
+    prompt: 0.015
+    completion: 0.03

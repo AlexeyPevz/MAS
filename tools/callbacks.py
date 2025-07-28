@@ -105,7 +105,7 @@ def retry_with_higher_tier_callback(current_tier: str, attempt: int) -> None:
         current_tier: текущий уровень модели
         attempt: номер попытки
     """
-    new_tier, model = retry_with_higher_tier(current_tier, attempt)
+    new_tier, model = retry_with_higher_tier(current_tier, attempt, budget_manager)
     logging.info(
         f"[callback] retry_with_higher_tier from {current_tier} attempt {attempt} -> {new_tier} model {model}"
     )

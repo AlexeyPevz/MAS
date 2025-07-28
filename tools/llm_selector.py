@@ -78,28 +78,36 @@ def previous_tier(current_tier: str) -> str:
     return order[max(idx - 1, 0)]
 
 
-def retry_with_higher_tier(current_tier: str, attempt: int) -> Tuple[str, Dict[str, str]]:
-    """Повысить уровень модели при ошибке и вернуть новую конфигурацию.
+def retry_with_higher_tier(
+    current_tier: str,
+    attempt: int,
+    manager: BudgetManager | None = None,
+) -> Tuple[str, Dict[str, str]]:
+    """Повысить уровень модели с учётом бюджета и вернуть новую конфигурацию.
 
-    Args:
-        current_tier: текущий уровень модели
-        attempt: номер попытки (увеличивается при каждом вызове)
+    Порядок действий:
 
-    Returns:
-        Кортеж (tier_name, model_dict) для следующей попытки.
-
-    Note:
-        Если достигнут максимальный уровень, возвращается последняя модель premium.
+    1. Если имеется :class:`BudgetManager` и он сигнализирует о необходимости
+       понизить расходы, *не* повышаем уровень (возвращаем текущий tier).
+    2. Ограничиваем число повышений `max_retries` из YAML.
+    3. В иных случаях повышаем уровень (cheap → standard → premium).
     """
+
+    # Бюджет не позволяет повышаться — остаёмся на месте
+    if manager is not None and manager.needs_downgrade():
+        logging.info("Budget constraint: staying on %s tier", current_tier)
+        return pick_config(current_tier, attempt=attempt, manager=manager)
+
     config = load_tiers()
     max_retries = config.get("max_retries", 3)
     # Если количество попыток превышает max_retries, остаёмся на текущем уровне
     if attempt >= max_retries:
         logging.warning("Достигнут лимит повторных попыток; остаёмся на текущем уровне.")
-        return pick_config(current_tier, attempt=attempt)
+        return pick_config(current_tier, attempt=attempt, manager=manager)
+
     # Иначе повышаем уровень
     next_level = next_tier(current_tier)
-    return pick_config(next_level, attempt=0)
+    return pick_config(next_level, attempt=0, manager=manager)
 
 
 def downgrade_with_budget(

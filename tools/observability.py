@@ -88,3 +88,57 @@ def observe_response_time(agent: str, seconds: float) -> None:
     if Histogram:
         response_time.labels(agent=agent).observe(seconds)
 
+
+# -------------------------------------------------------------
+# Convenience utilities
+# -------------------------------------------------------------
+
+import time
+from functools import wraps
+from typing import Callable, ParamSpec, TypeVar, Any
+
+P = ParamSpec("P")
+R = TypeVar("R")
+
+
+def observe_llm_call(agent: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """Decorator that records basic metrics for an LLM call.
+
+    The wrapped function *should* either:
+
+    1. Accept keyword argument ``tokens`` with the number of output tokens, **or**
+    2. Return an object (dict, attr) with attribute/field ``tokens``.
+
+    If none of these are available, only request/error/duration metrics are
+    recorded.
+    """
+
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
+        @wraps(func)
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:  # type: ignore[misc]
+            start = time.perf_counter()
+            record_request(agent)
+            try:
+                result = func(*args, **kwargs)
+            except Exception:
+                record_error(agent)
+                raise
+            finally:
+                observe_duration(agent, time.perf_counter() - start)
+
+            # Записываем токены, если доступны.
+            tokens_val: Any | None = None
+            if "tokens" in kwargs:
+                tokens_val = kwargs.get("tokens")
+            elif isinstance(result, dict) and "tokens" in result:
+                tokens_val = result.get("tokens")
+
+            if isinstance(tokens_val, int):
+                record_tokens(agent, tokens_val)
+
+            return result
+
+        return wrapper
+
+    return decorator
+
