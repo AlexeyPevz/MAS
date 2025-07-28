@@ -9,7 +9,9 @@ Google Custom Search). Здесь приведена базовая реализ
 HTTP‑запроса к DuckDuckGo Instant Answer API.
 """
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+
+from .cron import CronScheduler
 
 try:
     import requests  # type: ignore
@@ -62,3 +64,28 @@ def web_search(query: str, max_results: int = 5) -> List[Dict[str, Any]]:
     except Exception as exc:
         print(f"[Researcher] Ошибка web‑поиска: {exc}")
         return []
+
+
+def schedule_research(query: str, interval: int, scheduler: Optional[CronScheduler] = None) -> CronScheduler:
+    """Schedule periodic research jobs using :class:`CronScheduler`.
+
+    The job prints the number of results for the given query. In a real system
+    it would save them to a knowledge base.
+
+    Args:
+        query: search query
+        interval: interval in seconds between runs
+        scheduler: optional existing scheduler
+
+    Returns:
+        The scheduler instance handling the job.
+    """
+
+    scheduler = scheduler or CronScheduler()
+
+    def job() -> None:
+        results = web_search(query)
+        print(f"[Researcher] {query}: {len(results)} results")
+
+    scheduler.add_job(job, interval)
+    return scheduler
