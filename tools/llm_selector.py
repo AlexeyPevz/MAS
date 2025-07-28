@@ -32,7 +32,9 @@ def load_tiers(config_path: str = "config/llm_tiers.yaml") -> Dict[str, Any]:
     return data
 
 
-def pick_config(tier: str, attempt: int = 0) -> Tuple[str, Dict[str, str]]:
+def pick_config(
+    tier: str, attempt: int = 0, manager: BudgetManager | None = None
+) -> Tuple[str, Dict[str, str]]:
     """Получить конфигурацию модели из указанного уровня.
 
     Args:
@@ -45,6 +47,10 @@ def pick_config(tier: str, attempt: int = 0) -> Tuple[str, Dict[str, str]]:
     Note:
         Если количество попыток превышает список моделей, возвращается последняя модель уровня.
     """
+    if manager is not None and manager.needs_downgrade() and tier != "cheap":
+        tier = previous_tier(tier)
+        logging.warning("Достигнут лимит бюджета; используем уровень %s", tier)
+
     data = load_tiers()
     tiers = data.get("tiers", {})
     models: List[Dict[str, str]] = tiers.get(tier, [])
