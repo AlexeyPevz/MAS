@@ -56,6 +56,23 @@ sudo ./deploy/deploy.sh stop
 sudo ./deploy/deploy.sh backup
 ```
 
+## 🤖 Переключение в проактивный режим:
+
+```bash
+# Локально (перед загрузкой на сервер)
+python tools/set_mode.py --proactive
+
+# На сервере (после подключения по SSH)
+cd /opt/root-mas
+python tools/set_mode.py --proactive
+sudo ./deploy/deploy.sh restart
+
+# Другие режимы
+python tools/set_mode.py --coding      # Помощник по программированию
+python tools/set_mode.py --productivity # Помощник по продуктивности  
+python tools/set_mode.py --show        # Показать текущий режим
+```
+
 ## 🌐 Доступ к сервисам:
 
 После развертывания будут доступны:
@@ -77,6 +94,19 @@ MAS_GOAL="echo"  # или любая другая задача
 ```
 
 ### 🎯 Примеры целей (MAS_GOAL):
+
+#### 🤖 Для проактивного AI-ассистента:
+```bash
+# Полноценный проактивный помощник (РЕКОМЕНДУЕТСЯ)
+MAS_GOAL="act as a proactive AI assistant helping with any questions and tasks"
+
+# Специализированные варианты
+MAS_GOAL="be my coding assistant and help with development tasks"
+MAS_GOAL="act as my personal productivity assistant"
+MAS_GOAL="help me manage and optimize my daily workflow"
+```
+
+#### 🔧 Для конкретных задач:
 ```bash
 MAS_GOAL="echo"                          # Тест системы
 MAS_GOAL="summarise the README"          # Анализ документации

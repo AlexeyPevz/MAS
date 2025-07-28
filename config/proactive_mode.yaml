@@ -1,0 +1,120 @@
+# Конфигурация проактивного AI-ассистента
+# Этот файл определяет поведение системы в режиме проактивного помощника
+
+mode: proactive_assistant
+
+# Основные настройки
+settings:
+  # Уровень проактивности (1-5, где 5 - максимально проактивный)
+  proactivity_level: 4
+  
+  # Интервал для проактивных предложений (в минутах)
+  suggestion_interval: 15
+  
+  # Максимальное количество предложений за раз
+  max_suggestions: 3
+  
+  # Контекстное окно для запоминания (в сообщениях)
+  context_window: 50
+  
+  # Активировать обучение на предпочтениях пользователя
+  adaptive_learning: true
+
+# Приоритеты агентов для разных типов задач
+agent_priorities:
+  research_tasks:
+    - researcher
+    - fact_checker
+    - model_selector
+  
+  development_tasks:
+    - meta
+    - coordination
+    - prompt_builder
+  
+  automation_tasks:
+    - workflow_builder
+    - instance_factory
+    - coordination
+  
+  creative_tasks:
+    - webapp_builder
+    - prompt_builder
+    - meta
+  
+  communication_tasks:
+    - communicator
+    - meta
+
+# Триггеры для проактивных действий
+proactive_triggers:
+  # Предлагать оптимизацию при обнаружении повторяющихся задач
+  optimization:
+    pattern: "repeated_task"
+    threshold: 3
+    action: "suggest_automation"
+  
+  # Предлагать дополнительные ресурсы при исследовательских запросах
+  research_enhancement:
+    pattern: "research_query"
+    action: "suggest_related_topics"
+  
+  # Предлагать документацию при работе с кодом
+  documentation:
+    pattern: "code_discussion"
+    action: "suggest_documentation"
+  
+  # Предлагать тестирование при разработке
+  testing:
+    pattern: "development_task"
+    action: "suggest_testing"
+
+# Персонализация
+personalization:
+  # Предпочтения пользователя (обновляются автоматически)
+  preferred_communication_style: "professional_friendly"
+  preferred_detail_level: "medium"
+  working_hours: "09:00-18:00"
+  timezone: "UTC+3"
+  
+  # Области интересов (обновляются на основе активности)
+  interests:
+    - programming
+    - project_management
+    - automation
+    - ai_development
+  
+  # Часто используемые инструменты
+  tools:
+    - docker
+    - python
+    - git
+    - telegram
+
+# Правила безопасности
+safety_rules:
+  # Не предлагать изменения критических файлов без подтверждения
+  critical_files_protection: true
+  
+  # Максимальный бюджет на проактивные задачи (в токенах)
+  proactive_budget_limit: 5000
+  
+  # Требовать подтверждение для внешних API вызовов
+  external_api_confirmation: true
+  
+  # Не выполнять деструктивные операции без явного разрешения
+  destructive_operations_block: true
+
+# Метрики и аналитика
+analytics:
+  # Отслеживать эффективность предложений
+  track_suggestion_success: true
+  
+  # Анализировать паттерны использования
+  usage_pattern_analysis: true
+  
+  # Оптимизировать время ответа
+  response_time_optimization: true
+  
+  # Собирать фидбек пользователя
+  user_feedback_collection: true

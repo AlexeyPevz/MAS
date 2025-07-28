@@ -2,6 +2,20 @@
 
 Переменная `MAS_GOAL` определяет задачу, которую должна выполнить ваша мультиагентная система.
 
+## 🤖 Проактивный AI-ассистент
+
+```bash
+# Полноценный проактивный помощник
+MAS_GOAL="act as a proactive AI assistant helping with any questions and tasks"
+
+# Фокусированные варианты
+MAS_GOAL="be my coding assistant and help with development tasks"
+MAS_GOAL="act as my personal productivity assistant"
+MAS_GOAL="help me manage and optimize my daily workflow"
+MAS_GOAL="be my research assistant and help find solutions"
+MAS_GOAL="assist with project management and planning"
+```
+
 ## 🔧 Тестовые цели
 
 ```bash
