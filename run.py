@@ -16,6 +16,7 @@ from pathlib import Path
 
 
 from tools.logging_setup import configure_logging
+from tools.observability import start_metrics_server
 
 from config_loader import AgentsConfig, LlmTiers, load_dataclass
 
@@ -71,6 +72,7 @@ def start_groupchat(goal: str) -> None:
 def main() -> None:
     # Настроить логирование
     configure_logging()
+    start_metrics_server()
     parser = argparse.ArgumentParser(description="Запуск Root MAS GroupChat")
     parser.add_argument(
         "--goal",
