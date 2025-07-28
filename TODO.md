@@ -10,13 +10,13 @@
 
 ## 1. Зависимости и базовое окружение
 - [x] Обновить `requirements.txt` (✅ autogen добавлен).
-- [ ] Проверить совместимые версии `python-telegram-bot`, `prometheus_client`, `requests`, `hvac`, `chromadb`.
+- [x] Проверить совместимые версии `python-telegram-bot`, `prometheus_client`, `requests`, `hvac`, `chromadb`.
 
 ## 2. Агентное ядро / AutoGen
 - [x] Удалить fallback-классы в `agents/base.py` (ConversableAgent) при наличии AutoGen.
 - [x] Удалить fallback-классы в `tools/groupchat_manager.py`.
 - [ ] Пройтись по всем модулям, где `try … except ImportError` → убедиться, что настоящие импорты работают.
-- [ ] Расширить структуру промптов:
+- [x] Расширить структуру промптов:
   - system.md (базовая роль агента)
   - task_*.md (специализированные промпты под разные задачи)
   - optional: reflexion.md / critique.md для self-eval

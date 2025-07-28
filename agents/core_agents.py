@@ -49,6 +49,18 @@ class PromptBuilderAgent(BaseAgent):
 
         create_agent_prompt(agent_name, content)
 
+    # Task-specific prompts -------------------------------------------------
+
+    def create_task_prompt(self, agent_name: str, task: str, content: str) -> None:
+        from tools.prompt_builder import create_task_prompt
+
+        create_task_prompt(agent_name, task, content)
+
+    def update_task_prompt(self, agent_name: str, task: str, content: str) -> None:
+        from tools.prompt_builder import update_task_prompt
+
+        update_task_prompt(agent_name, task, content)
+
     def audit_prompt(self, agent_name: str) -> str:
         from tools.prompt_builder import audit_prompt
 
