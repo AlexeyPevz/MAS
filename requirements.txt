@@ -1,0 +1,9 @@
+pyyaml
+python-telegram-bot==13.15
+requests
+redis
+psycopg2-binary
+chromadb
+schedule
+prometheus_client
+gitpython
