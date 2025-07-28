@@ -7,36 +7,58 @@ gpt_pilot.py
 использует этот модуль для создания приложений и отслеживания статуса.
 """
 
+import os
 from typing import Dict, Any, Optional
 
-# В реальной реализации потребуется HTTP‑клиент и авторизация
+try:
+    import requests  # type: ignore
+except ImportError:  # pragma: no cover - optional dependency
+    requests = None  # type: ignore
+
+
+BASE_URL = os.getenv("GPT_PILOT_URL", "http://localhost:8000")
+API_KEY = os.getenv("GPT_PILOT_API_KEY", "")
+
+
+def _headers() -> Dict[str, str]:
+    headers = {"Content-Type": "application/json"}
+    if API_KEY:
+        headers["Authorization"] = f"Bearer {API_KEY}"
+    return headers
 
 
 def create_app(spec_json: Dict[str, Any]) -> str:
-    """Отправить спецификацию приложения в GPT‑Pilot и получить идентификатор задания.
-
-    Args:
-        spec_json: описание приложения в формате JSON
-
-    Returns:
-        ID задачи в GPT‑Pilot.
-
-    Note:
-        Здесь должна быть реализация HTTP‑запроса к GPT‑Pilot. Возвращаем
-        фиктивный ID для демонстрации.
-    """
-    # TODO: реализация вызова GPT‑Pilot
-    return "pilot-task-id-placeholder"
+    """Отправить спецификацию в GPT‑Pilot и вернуть ID задачи."""
+    if requests is None:
+        raise RuntimeError("Для работы gpt_pilot требуется библиотека requests")
+    try:
+        resp = requests.post(
+            f"{BASE_URL}/api/v1/tasks",
+            json=spec_json,
+            headers=_headers(),
+            timeout=10,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return data.get("id", "")
+    except Exception as exc:  # pragma: no cover - network errors
+        print(f"[gpt_pilot] Ошибка создания приложения: {exc}")
+        return ""
 
 
 def status(task_id: str) -> Optional[Dict[str, Any]]:
-    """Получить статус выполнения задачи GPT‑Pilot.
+    """Получить статус выполнения задачи GPT‑Pilot."""
+    if requests is None:
+        raise RuntimeError("Для работы gpt_pilot требуется библиотека requests")
+    try:
+        resp = requests.get(
+            f"{BASE_URL}/api/v1/tasks/{task_id}",
+            headers=_headers(),
+            timeout=10,
+        )
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as exc:  # pragma: no cover - network errors
+        print(f"[gpt_pilot] Ошибка получения статуса: {exc}")
+        return None
 
-    Args:
-        task_id: идентификатор задачи
-
-    Returns:
-        Структура со статусом (например, {"status": "running", "progress": 0.5}).
-    """
-    # TODO: реализация получения статуса
-    return {"status": "running", "progress": 0.0}
