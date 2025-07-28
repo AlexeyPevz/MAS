@@ -1,71 +1,69 @@
-# Root-MAS: Multi‑Agent System Platform
+# Root-MAS: Multi-Agent System Platform
 
-This repository contains a starting code base for a multi‑agent system (MAS) inspired by the architecture described in the project specification.  It is designed to be run on a VPS and extended over the course of several sprints.  The goal of this code is to provide a clean foundation with configuration files, prompt templates and a simple run script demonstrating the tiered LLM cascade logic.
+Root-MAS provides a lightweight skeleton for building a multi‑agent system with AutoGen.  The project includes configuration templates, system prompts and demo scripts that illustrate the tiered LLM cascade described in the documentation.
 
-## Project structure
+## Repository structure
 
 ```
-root_mas/
+.
+├── agents/                 # skeleton implementations of the core agents
 ├── config/                 # YAML configuration files
-│   ├── agents.yaml         # definitions of core agents and their roles
-│   ├── llm_tiers.yaml      # LLM tier definitions for cascade selection
-│   └── instances.yaml      # placeholder for deployed MAS instances
-├── prompts/
-│   ├── global/
-│   │   └── system.md       # global system prompt shared by all agents
-│   └── agents/
-│       └── meta/
-│           └── system.md   # system prompt for the Meta agent (example)
-├── tools/                  # helper modules that encapsulate integrations
-│   ├── telegram_voice.py   # stub for Telegram bot with STT/TTS via Yandex
-│   ├── n8n_client.py       # stub for interacting with n8n workflows
-│   ├── gpt_pilot.py        # stub for GPT‑Pilot integration
-│   └── prompt_io.py        # utilities for reading/writing prompt files
-├── deploy/
-│   ├── internal/compose.yml# docker compose template for internal MAS
-│   └── client/compose.yml  # docker compose template for client MAS
-├── run.py                  # entry point for running the root group chat
-└── .gitignore             # ignore Python caches and environment files
+│   ├── agents.yaml         # definitions of root agents and their models
+│   ├── llm_tiers.yaml      # model tiers (cheap/standard/premium)
+│   └── instances.yaml      # registry of deployed MAS instances
+├── deploy/                 # docker compose templates
+│   ├── internal/compose.yml  # compose for internal MAS instance
+│   └── client/compose.yml    # compose for client MAS instance
+├── docs/                   # architecture diagram and sprint plan
+├── examples/               # demo scripts
+├── memory/                 # storage backends (Redis, Postgres, Chroma)
+├── prompts/                # system prompts for all agents
+├── tools/                  # helper modules for integrations
+├── run.py                  # entry point that launches the root group chat
+├── compose.yml             # compose template for a single client MAS
+└── requirements.txt        # Python dependencies
 ```
 
-## How to use
+## Deployment
 
-1.  **Install dependencies.**  Python 3.9+ is required.  Install packages from `root_mas/requirements.txt`:
+1. **Install dependencies.**  Python 3.9 or newer is required.
 
-    ```bash
-    pip install -r root_mas/root_mas/requirements.txt
-    ```
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-2.  **Configure environment variables.**  Copy `.env.example` to `.env` and fill in the API keys (`OPENROUTER_API_KEY`, `YANDEX_API_KEY`, `YANDEX_FOLDER_ID`, `N8N_API_TOKEN`, `TELEGRAM_BOT_TOKEN`).
-3.  **Start supporting services.**  To launch a local MAS instance use Docker Compose:
+2. **Configure environment variables.**  Copy `.env.example` to `.env` and fill in the API keys (`OPENROUTER_API_KEY`, `YANDEX_API_KEY`, `YANDEX_FOLDER_ID`, `N8N_API_TOKEN`, `TELEGRAM_BOT_TOKEN`).
 
-    ```bash
-    cd root_mas/root_mas/deploy/internal
-    cp .env.example .env  # create if needed
-    docker compose up -d
-    ```
+3. **Start supporting services.**  Launch the containers with Docker Compose.  For an internal instance run:
 
-    This starts PostgreSQL, Redis, ChromaDB and n8n as described in `deploy/internal/compose.yml`.
-4.  **Run an echo test:**
+   ```bash
+   cd deploy/internal
+   cp .env.example .env  # adjust if needed
+   docker compose up -d
+   ```
 
-    ```bash
-    python run.py --goal "echo"
-    ```
+   This starts PostgreSQL, Redis, ChromaDB and n8n.  For a client deployment use `deploy/client/compose.yml` or the top‑level `compose.yml`.
 
-    The script will read `config/llm_tiers.yaml` and select a model from the cheapest tier to handle your goal.  It will then print which model would have been used.  In a real deployment the call to the large language model would occur here.
+4. **Run an echo test.**
 
-5.  **Try the demo scripts.**  Example scenarios are provided under `examples/`:
+   ```bash
+   python run.py --goal "echo"
+   ```
 
-    ```bash
-    python examples/echo_demo.py           # interactive echo test
-    python examples/workflow_demo.py       # generate and activate an n8n workflow
-    python examples/webapp_demo.py         # request web app creation via GPT-Pilot
-    ```
+   The script reads `config/llm_tiers.yaml` and prints which model would be chosen from the cheapest tier.
 
-6.  **Iterate on the agents.**  Gradually extend the code base by implementing the stubs in `tools/` and adding new agents and prompts.  See `config/agents.yaml` for a list of core agents and their roles.
+## Example scripts
 
-## Notes
+Several demos under [`examples/`](examples) showcase common flows:
 
-* This repository is intentionally lightweight and focuses on the initial setup.  Many modules contain placeholder functions that need to be filled in during the development sprints.
-* The `llm_tiers.yaml` file defines three tiers (cheap, standard and premium) with example model identifiers.  Adjust these values based on the models you have access to.
-* Feel free to modify the directory structure or add additional configuration files as the project evolves.
+- [`examples/echo_demo.py`](examples/echo_demo.py) – interactive echo test using the model picker.
+- [`examples/workflow_demo.py`](examples/workflow_demo.py) – generate and activate an n8n workflow.
+- [`examples/webapp_demo.py`](examples/webapp_demo.py) – request a web application from GPT‑Pilot.
+
+Explore these scripts to understand how the helper modules in `tools/` are intended to work.
+
+## Development notes
+
+* Many modules are placeholders and should be expanded during future sprints.
+* The model cascade in `config/llm_tiers.yaml` lists LLMs in order of cost.  Adjust it for your providers.
+* Additional design documents are available in [`docs/`](docs).
