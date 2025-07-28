@@ -102,9 +102,19 @@ def tts(text: str) -> bytes:
 
 
 class TelegramVoiceBot:
-    """Простейший long‑polling бот для приёма текстовых и голосовых сообщений."""
+    """Простейший long‑polling бот для приёма текстовых и голосовых сообщений.
 
-    def __init__(self, token: str):
+    Parameters
+    ----------
+    token:
+        Токен Telegram‑бота.
+    forward_callback:
+        Опциональная функция, которая принимает текст сообщения и
+        возвращает текст ответа. Если не указана, бот будет повторять
+        сообщения пользователя (echo).
+    """
+
+    def __init__(self, token: str, forward_callback: Optional[callable] = None):
         if Bot is None:
             raise RuntimeError(
                 "Не установлена библиотека python-telegram-bot. Установите её для работы Telegram‑бота."
@@ -113,6 +123,8 @@ class TelegramVoiceBot:
         self.bot = Bot(token=token)
         self.updater = Updater(token, use_context=True)
         dispatcher = self.updater.dispatcher
+
+        self.forward_callback = forward_callback
 
         dispatcher.add_handler(MessageHandler(Filters.voice, self.handle_voice))
         dispatcher.add_handler(MessageHandler(Filters.text & (~Filters.command), self.handle_text))
@@ -128,18 +140,36 @@ class TelegramVoiceBot:
         file = update.message.voice.get_file()
         file_path = file.download()
         transcript = stt(file_path)
-        # Отправляем текст транскрипции обратно или передаём в Root GroupChat
-        # Здесь можно вызвать Root GroupChat, а затем отправить результат
-        update.message.reply_text(transcript)
+        if self.forward_callback:
+            reply = self.forward_callback(transcript)
+        else:
+            reply = f"[echo] {transcript}"
+
+        if reply:
+            audio = tts(reply)
+            if audio:
+                import io
+
+                update.message.reply_voice(voice=io.BytesIO(audio))
+            else:
+                update.message.reply_text(reply)
 
     def handle_text(self, update: "Update", context: "CallbackContext") -> None:
         """Обработка входящего текстового сообщения."""
         user_text = update.message.text
-        # TODO: отправить текст в Root GroupChat и получить ответ
-        # Здесь должен быть вызов Root GroupChat через агента Communicator.
-        # Пока просто эхо для демонстрации.
-        reply = f"[echo] {user_text}"
-        update.message.reply_text(reply)
+        if self.forward_callback:
+            reply = self.forward_callback(user_text)
+        else:
+            reply = f"[echo] {user_text}"
+
+        if reply:
+            audio = tts(reply)
+            if audio:
+                import io
+
+                update.message.reply_voice(voice=io.BytesIO(audio))
+            else:
+                update.message.reply_text(reply)
 
     def run(self) -> None:
         """Запустить цикл long‑polling."""

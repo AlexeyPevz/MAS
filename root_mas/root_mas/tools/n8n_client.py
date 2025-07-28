@@ -80,5 +80,6 @@ if __name__ == "__main__":
         "connections": {},
     }
     result = client.create_workflow(workflow)
-    if result:
+    if result and result.get("id"):
         print("Создан workflow:", result.get("id"))
+        client.activate_workflow(result["id"])
