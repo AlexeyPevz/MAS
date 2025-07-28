@@ -9,39 +9,38 @@ security.py
 """
 
 from typing import Optional
+import os
+from pathlib import Path
+import yaml  # type: ignore
 
 
 def get_secret(key: str) -> Optional[str]:
-    """Получить секрет по ключу из хранилища.
+    """Получить секрет по ключу из хранилища или переменных окружения."""
 
-    Args:
-        key: имя секрета
+    # Сначала пробуем прочитать из переменных окружения
+    if val := os.getenv(key):
+        return val
 
-    Returns:
-        Значение секрета или None, если не найден.
+    # Затем ищем файл ~/.mas_secrets.yaml, в котором могут храниться ключи
+    secrets_file = Path.home() / ".mas_secrets.yaml"
+    if secrets_file.exists():
+        try:
+            data = yaml.safe_load(secrets_file.read_text(encoding="utf-8")) or {}
+            if isinstance(data, dict):
+                return data.get(key)
+        except Exception:
+            return None
 
-    Note:
-        В настоящей системе используется Vault. Здесь возвращается None.
-    """
-    # TODO: интеграция с хранилищем секретов (Vault, AWS Secrets Manager и т.п.)
     return None
 
 
 def approve_global_prompt_change(diff: str) -> bool:
-    """Запросить у пользователя подтверждение на изменение глобального промпта.
+    """Запросить у пользователя подтверждение на изменение глобального промпта."""
 
-    Args:
-        diff: строка с diff изменений
-
-    Returns:
-        True, если пользователь подтвердил; False в противном случае.
-
-    Note:
-        В этой заглушке всегда возвращается False. В реальной реализации
-        следует отправить diff через Telegram (или другой канал) и ждать
-        подтверждения.
-    """
-    # TODO: интеграция с Telegram и логикой подтверждения
     print("[Security] Требуется подтверждение изменения глобального промпта:")
     print(diff)
-    return False
+    try:
+        answer = input("Apply changes? [y/N]: ").strip().lower()
+    except KeyboardInterrupt:
+        return False
+    return answer in {"y", "yes"}
