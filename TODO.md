@@ -41,7 +41,7 @@
 ## 6. Инструменты (tools/*)
 - [x] `multitool.call_api` — экспоненциальный backoff, circuit-breaker.
 - [x] `n8n_client` — auth-header, retry/backoff 5xx/timeout.
-- [ ] `wf_builder` — формирование workflow нод на основе спецификации.
+- [x] `wf_builder` — поддержка DSL `steps:` → генерируются ноды и sequential connections.
 - [ ] `instance_factory` — health-check, rollback on failure.
 - [ ] `researcher` — перейти на SerpAPI / Browserless, добавить кеш.
 - [ ] `fact_checker` — GPT-powered пост-валидация фактов.

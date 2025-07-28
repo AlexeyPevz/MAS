@@ -39,9 +39,16 @@ def generate_n8n_json(spec: str) -> Dict[str, Any]:
             continue
         try:
             data = loader(spec)
-            if isinstance(data, dict) and "nodes" in data:
+            if not isinstance(data, dict):
+                continue
+            # Full n8n JSON already
+            if "nodes" in data:
                 return data
-        except Exception:  # pragma: no cover - invalid spec
+
+            # High-level DSL: {name, steps: [{name, type, parameters}]}
+            if "steps" in data and isinstance(data["steps"], list):
+                return _steps_to_workflow(data)
+        except Exception:
             continue
 
     # Fallback: минимальный workflow
@@ -85,3 +92,47 @@ def create_workflow(spec: Any, n8n_base_url: str | None = None, api_key: str | N
         workflow_id = result["id"]
         client.activate_workflow(workflow_id)
     return result
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _steps_to_workflow(spec: Dict[str, Any]) -> Dict[str, Any]:
+    """Convert a simple *steps* DSL into n8n workflow JSON."""
+
+    steps = spec.get("steps", [])
+    name = spec.get("name", "Generated Workflow")
+
+    nodes: list[Dict[str, Any]] = []
+    connections: Dict[str, Dict[str, list[dict]]] = {}
+
+    x, y = 0, 0
+    for idx, step in enumerate(steps):
+        node_name = step.get("name", f"Step {idx+1}")
+        node_type = step.get("type", "n8n-nodes-base.noOp")
+        params = step.get("parameters", {})
+
+        node = {
+            "parameters": params,
+            "name": node_name,
+            "type": node_type,
+            "typeVersion": 1,
+            "position": [x, y],
+        }
+        nodes.append(node)
+
+        # simple vertical layout
+        y += 200
+
+        # create sequential connection
+        if idx > 0:
+            prev_name = steps[idx - 1].get("name", f"Step {idx}")
+            connections.setdefault(prev_name, {}).setdefault("main", [[]]).append({"node": node_name, "type": "main", "index": 0})
+
+    return {
+        "name": name,
+        "nodes": nodes,
+        "connections": connections,
+    }
