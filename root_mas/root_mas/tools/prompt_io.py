@@ -8,7 +8,6 @@ prompt_io.py
 """
 
 from pathlib import Path
-from typing import Iterable, List
 
 
 def read_prompt(path: str) -> str:
@@ -26,18 +25,9 @@ def read_prompt(path: str) -> str:
     return p.read_text(encoding="utf-8")
 
 
-def write_prompt(path: str, lines: Iterable[str]) -> None:
-    """Записать содержимое промпта в файл.
-
-    Args:
-        path: путь к файлу
-        lines: коллекция строк для записи
-
-    Note:
-        В реальной реализации здесь можно добавить создание git‑коммита.
-    """
+def write_prompt(path: str, content: str) -> None:
+    """Записать содержимое промпта в файл."""
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     with p.open("w", encoding="utf-8") as f:
-        for line in lines:
-            f.write(line.rstrip("\n") + "\n")
+        f.write(content)

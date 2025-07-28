@@ -147,6 +147,12 @@ class TelegramVoiceBot:
         self.updater.idle()
 
 
+def run_telegram_bot(token: str) -> None:
+    """Упрощённый запуск Telegram‑бота."""
+    bot = TelegramVoiceBot(token)
+    bot.run()
+
+
 if __name__ == "__main__":
     token = os.getenv("TELEGRAM_TOKEN")
     if not token:
