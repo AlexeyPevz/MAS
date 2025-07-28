@@ -54,7 +54,15 @@ root_mas/
 
     The script will read `config/llm_tiers.yaml` and select a model from the cheapest tier to handle your goal.  It will then print which model would have been used.  In a real deployment the call to the large language model would occur here.
 
-5.  **Iterate on the agents.**  Gradually extend the code base by implementing the stubs in `tools/` and adding new agents and prompts.  See `config/agents.yaml` for a list of core agents and their roles.
+5.  **Try the demo scripts.**  Example scenarios are provided under `examples/`:
+
+    ```bash
+    python examples/echo_demo.py           # interactive echo test
+    python examples/workflow_demo.py       # generate and activate an n8n workflow
+    python examples/webapp_demo.py         # request web app creation via GPT-Pilot
+    ```
+
+6.  **Iterate on the agents.**  Gradually extend the code base by implementing the stubs in `tools/` and adding new agents and prompts.  See `config/agents.yaml` for a list of core agents and their roles.
 
 ## Notes
 
