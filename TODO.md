@@ -49,7 +49,7 @@
 
 ## 7. Тесты
 - [x] Unit-тесты на каждую tool-функцию (базовые mock-free проверки).
-- [ ] Интеграционный тест: goal → groupchat → callback (docker-in-docker).
+- [x] Интеграционный тест: goal → groupchat → callback (docker-in-docker).
 
 ## 8. Документация
 - [ ] Обновить `README.md`: архитектура, быстрый старт, эксплуатация.
