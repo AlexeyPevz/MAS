@@ -12,12 +12,16 @@ run.py
 """
 
 import argparse
-import json
 from pathlib import Path
 import sys
+
 from tools.logging_setup import configure_logging
+
 sys.path.append(str(Path(__file__).resolve().parents[2]))
+
 from config_loader import AgentsConfig
+from agents.core_agents import create_agents
+from groupchat_manager import RootGroupChatManager
 
 
 def load_agents_config(config_path: str = "config/agents.yaml") -> AgentsConfig:
@@ -27,15 +31,26 @@ def load_agents_config(config_path: str = "config/agents.yaml") -> AgentsConfig:
     return AgentsConfig.from_yaml(path)
 
 
-def echo_test(goal: str) -> None:
-    """Вывести приветственное сообщение и заданную цель."""
+def start_groupchat(goal: str) -> None:
+    """Инициализировать агентов и запустить корневой GroupChat."""
+
     print("[Root GroupChat] Запуск MAS...")
     print(f"Цель: {goal}")
-    agents_config = load_agents_config()
+
+    agents_cfg = load_agents_config()
+    agents = create_agents(agents_cfg)
+
+    routing = {
+        "communicator": ["meta"],
+        "meta": ["coordination"],
+    }
+
+    RootGroupChatManager(agents, routing)  # инициализация чата
+
     print("Настроенные агенты:")
-    for agent_name, data in agents_config.agents.items():
-        print(f"  - {agent_name}: {data.role} (model: {data.model})")
-    print("Система готова к работе. Реализуйте агентов с использованием AutoGen.")
+    for name, data in agents_cfg.agents.items():
+        print(f"  - {name}: {data.role} (model: {data.model})")
+    print("Группа и агенты инициализированы. Реализуйте бизнес-логику в следующих спринтах.")
 
 
 def main() -> None:
@@ -49,7 +64,7 @@ def main() -> None:
         help="Цель для корневого агента (например, 'echo' для тестирования)",
     )
     args = parser.parse_args()
-    echo_test(args.goal)
+    start_groupchat(args.goal)
 
 
 if __name__ == "__main__":
