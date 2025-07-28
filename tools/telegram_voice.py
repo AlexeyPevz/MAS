@@ -14,8 +14,9 @@ telegram_voice.py
 """
 
 import os
-from typing import Optional, Dict, Any
 import logging
+from dataclasses import dataclass
+from typing import Optional, Dict, Any, Callable
 
 # Попробуем импортировать telegram, если установлен
 try:
@@ -23,10 +24,23 @@ try:
     from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 except ImportError:
     # Библиотеки могут отсутствовать в окружении, оставляем заглушки
-    Bot = None  # type: ignore
+Bot = None  # type: ignore
 
 
-def stt(file_path: str) -> str:
+@dataclass
+class SpeechKitClient:
+    """Minimal client for Yandex SpeechKit REST API."""
+
+    api_key: str
+
+    def stt(self, file_path: str) -> str:
+        return stt(file_path, self.api_key)
+
+    def tts(self, text: str) -> bytes:
+        return tts(text, self.api_key)
+
+
+def stt(file_path: str, api_key: str | None = None) -> str:
     """Преобразовать голосовой файл (OGG) в текст с помощью Yandex SpeechKit.
 
     Args:
@@ -40,7 +54,7 @@ def stt(file_path: str) -> str:
     except ImportError:
         raise RuntimeError("Для работы STT требуется библиотека requests. Установите её: pip install requests")
 
-    yandex_api_key = os.getenv("YA_SPEECHKIT_API_KEY")
+    yandex_api_key = api_key or os.getenv("YA_SPEECHKIT_API_KEY")
     if not yandex_api_key:
         logging.error("Не указан YA_SPEECHKIT_API_KEY в .env")
         return ""
@@ -64,7 +78,7 @@ def stt(file_path: str) -> str:
     return result.get("result", "")
 
 
-def tts(text: str) -> bytes:
+def tts(text: str, api_key: str | None = None) -> bytes:
     """Сгенерировать голосовой ответ из текста через Yandex SpeechKit.
 
     Args:
@@ -78,7 +92,7 @@ def tts(text: str) -> bytes:
     except ImportError:
         raise RuntimeError("Для работы TTS требуется библиотека requests. Установите её: pip install requests")
 
-    yandex_api_key = os.getenv("YA_SPEECHKIT_API_KEY")
+    yandex_api_key = api_key or os.getenv("YA_SPEECHKIT_API_KEY")
     if not yandex_api_key:
         logging.error("Не указан YA_SPEECHKIT_API_KEY в .env")
         return b""
@@ -114,39 +128,36 @@ class TelegramVoiceBot:
         сообщения пользователя (echo).
     """
 
-    def __init__(self, token: str, forward_callback: Optional[callable] = None):
+    def __init__(self, token: str, speechkit: SpeechKitClient, forward_callback: Optional[Callable[[str], Optional[str]]] = None):
         if Bot is None:
             raise RuntimeError(
                 "Не установлена библиотека python-telegram-bot. Установите её для работы Telegram‑бота."
             )
         self.token = token
+        self.speechkit = speechkit
         self.bot = Bot(token=token)
         self.updater = Updater(token, use_context=True)
         dispatcher = self.updater.dispatcher
 
         self.forward_callback = forward_callback
+        self._last_chat_id: Optional[int] = None
 
         dispatcher.add_handler(MessageHandler(Filters.voice, self.handle_voice))
         dispatcher.add_handler(MessageHandler(Filters.text & (~Filters.command), self.handle_text))
-        # Импортируем callback для отправки сообщений пользователю.
-        try:
-            from .callbacks import outgoing_to_telegram  # noqa: F401
-        except Exception:
-            # Callback может отсутствовать на этапе разработки
-            outgoing_to_telegram = None  # type: ignore
 
     def handle_voice(self, update: "Update", context: "CallbackContext") -> None:
         """Обработка входящего голосового сообщения."""
         file = update.message.voice.get_file()
         file_path = file.download()
-        transcript = stt(file_path)
+        self._last_chat_id = update.effective_chat.id
+        transcript = self.speechkit.stt(file_path)
         if self.forward_callback:
             reply = self.forward_callback(transcript)
         else:
             reply = f"[echo] {transcript}"
 
         if reply:
-            audio = tts(reply)
+            audio = self.speechkit.tts(reply)
             if audio:
                 import io
 
@@ -157,13 +168,14 @@ class TelegramVoiceBot:
     def handle_text(self, update: "Update", context: "CallbackContext") -> None:
         """Обработка входящего текстового сообщения."""
         user_text = update.message.text
+        self._last_chat_id = update.effective_chat.id
         if self.forward_callback:
             reply = self.forward_callback(user_text)
         else:
             reply = f"[echo] {user_text}"
 
         if reply:
-            audio = tts(reply)
+            audio = self.speechkit.tts(reply)
             if audio:
                 import io
 
@@ -176,10 +188,38 @@ class TelegramVoiceBot:
         self.updater.start_polling()
         self.updater.idle()
 
+    def send_message(self, text: str) -> None:
+        """Send a message from MAS to the last active chat."""
+        if not self._last_chat_id:
+            return
+        audio = self.speechkit.tts(text)
+        if audio:
+            import io
+
+            self.bot.send_voice(chat_id=self._last_chat_id, voice=io.BytesIO(audio))
+        else:
+            self.bot.send_message(chat_id=self._last_chat_id, text=text)
+
+
+def run_telegram_bot(
+    token: str,
+    speechkit_client: SpeechKitClient,
+    forward_callback: Optional[Callable[[str], Optional[str]]] = None,
+) -> None:
+    """Create and run the Telegram voice bot."""
+
+    from .callbacks import register_telegram_sender
+
+    bot = TelegramVoiceBot(token, speechkit_client, forward_callback)
+    register_telegram_sender(bot.send_message)
+    bot.run()
+
 
 if __name__ == "__main__":
     token = os.getenv("TELEGRAM_TOKEN")
+    ya_key = os.getenv("YA_SPEECHKIT_API_KEY")
     if not token:
         raise RuntimeError("Не указан TELEGRAM_TOKEN в переменных окружения")
-    bot = TelegramVoiceBot(token)
-    bot.run()
+    if not ya_key:
+        raise RuntimeError("Не указан YA_SPEECHKIT_API_KEY в переменных окружения")
+    run_telegram_bot(token, SpeechKitClient(ya_key))
