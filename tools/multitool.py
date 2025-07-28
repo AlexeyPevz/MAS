@@ -11,6 +11,7 @@ LLM (например, Kimi K2) для обработки запросов. В �
 
 from typing import Any, Dict, List
 import os
+import time
 
 try:
     import requests  # type: ignore
@@ -25,6 +26,12 @@ API_KEY = os.getenv("MULTITOOL_API_KEY", "")
 FALLBACK_TOOLS: Dict[str, List[str]] = {
     "kimi_k2": ["kimi_k1"],
 }
+
+# Circuit-breaker state (simple in-memory): tool -> failures count
+_FAILURES: Dict[str, int] = {}
+_CB_THRESHOLD = int(os.getenv("MULTITOOL_CB_THRESHOLD", "3"))
+_CB_COOLDOWN = int(os.getenv("MULTITOOL_CB_COOLDOWN", "60"))  # sec
+_CB_OPENED_AT: Dict[str, float] = {}
 
 
 def _headers() -> Dict[str, str]:
@@ -43,18 +50,35 @@ def call_api(api_name: str, params: Dict[str, Any]) -> Dict[str, Any]:
     if requests is None:
         raise RuntimeError("Для работы multitool требуется библиотека requests")
     url = f"{BASE_URL}/api/{api_name}"
-    try:
-        resp = requests.post(url, json=params, headers=_headers(), timeout=10)
-        if resp.status_code == 404:
-            from .callback_matrix import handle_event
+    # Circuit breaker: is tool in cooldown?
+    if api_name in _CB_OPENED_AT and time.time() - _CB_OPENED_AT[api_name] < _CB_COOLDOWN:
+        return {"error": "circuit_open", "tool": api_name}
 
-            handle_event("MISSING_TOOL", api_name)
-            return {"error": "missing_tool", "tool": api_name}
-        resp.raise_for_status()
-        return resp.json()
-    except Exception as exc:  # pragma: no cover - network errors
-        print(f"[multitool] Ошибка вызова {api_name}: {exc}")
-        return {"error": str(exc)}
+    backoff = 1.0
+    for attempt in range(3):
+        try:
+            resp = requests.post(url, json=params, headers=_headers(), timeout=10)
+            if resp.status_code == 404:
+                from .callback_matrix import handle_event
+
+                handle_event("MISSING_TOOL", api_name)
+                return {"error": "missing_tool", "tool": api_name}
+            resp.raise_for_status()
+            # success: reset failure count
+            _FAILURES.pop(api_name, None)
+            return resp.json()
+        except Exception as exc:  # pragma: no cover - network errors
+            print(f"[multitool] Ошибка вызова {api_name} (attempt {attempt+1}): {exc}")
+            time.sleep(backoff)
+            backoff *= 2
+
+    # all retries failed -> update failure stats
+    _FAILURES[api_name] = _FAILURES.get(api_name, 0) + 1
+    if _FAILURES[api_name] >= _CB_THRESHOLD:
+        _CB_OPENED_AT[api_name] = time.time()
+        print(f"[multitool] Circuit opened for {api_name} for {_CB_COOLDOWN}s")
+
+    return {"error": "unavailable", "tool": api_name}
 
 
 def call(
