@@ -15,6 +15,7 @@ from typing import Dict
 
 # cost estimation
 from .pricing import estimate_cost
+from .budget_storage import record_expense
 
 
 @dataclass
@@ -27,6 +28,7 @@ class BudgetManager:
         """Добавить расход к сегодняшнему счёту."""
         self._reset_if_needed()
         self.spent_today += amount
+        record_expense(datetime.utcnow(), amount)
 
     # ------------------------------------------------------------------
     # High-level helper

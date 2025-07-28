@@ -35,7 +35,7 @@
 ## 5. Budget & LLM tiers
 - [x] Считывать цены токенов из конфиг-файла (`config/pricing.yaml`).
 - [x] `budget_manager` — метод `add_usage`, расчёт стоимости из Pricing.
-- [ ] Опционально сохранять расходы в Postgres/Redis.
+- [x] Сохранять расходы в Redis (fallback CSV).
 - [ ] В `llm_selector.retry_with_higher_tier` — учитывать бюджет-менеджер.
 
 ## 6. Инструменты (tools/*)
