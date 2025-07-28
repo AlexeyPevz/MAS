@@ -1,7 +1,7 @@
 """Demo for creating a web application via GPT-Pilot."""
 import time
 
-from gpt_pilot import create_app, status
+from tools.gpt_pilot import create_app, status
 
 
 SPEC = {

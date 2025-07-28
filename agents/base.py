@@ -5,10 +5,10 @@ from typing import Any
 
 from autogen.agentchat import ConversableAgent
 
-from prompt_io import read_prompt
+from tools.prompt_io import read_prompt
 
 
-PROMPTS_DIR = Path(__file__).resolve().parent.parent / "root_mas" / "root_mas" / "prompts" / "agents"
+PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts" / "agents"
 
 
 class BaseAgent(ConversableAgent):
