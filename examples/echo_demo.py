@@ -1,11 +1,14 @@
 """Simple echo demonstration using the MAS configuration."""
 from pathlib import Path
 
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
 from run import load_llm_tiers, pick_model
 
 
 def main() -> None:
-    tiers = load_llm_tiers(Path(__file__).resolve().parent.parent / "llm_tiers.yaml")
+    tiers = load_llm_tiers(Path(__file__).resolve().parent.parent / "config" / "llm_tiers.yaml")
     model = pick_model(tiers)
     print(f"Selected model: {model}")
     text = input("Say something: ")

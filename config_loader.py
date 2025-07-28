@@ -18,6 +18,10 @@ def load_dataclass(path: Path, cls: Type[T]) -> T:
     """Load a YAML file and populate the given dataclass type."""
 
     data = _load_yaml(path)
+    # Для LlmTiers нужно извлечь данные из секции 'tiers'
+    if cls == LlmTiers and 'tiers' in data:
+        tiers_data = data['tiers']
+        return cls(**tiers_data)
     return cls(**data)
 
 
@@ -36,6 +40,8 @@ class AgentDefinition:
 
     role: str
     model: str
+    description: str = ""
+    default_tier: str = "standard"
     memory: str | None = None
 
 
@@ -48,9 +54,11 @@ class AgentsConfig:
     @classmethod
     def from_yaml(cls, path: Path) -> "AgentsConfig":
         raw = _load_yaml(path).get("agents", {})
-        agents = {
-            name: AgentDefinition(**cfg)
-            for name, cfg in raw.items()
-        }
+        agents = {}
+        for name, cfg in raw.items():
+            # Добавляем model если его нет, используя default_tier
+            if "model" not in cfg:
+                cfg["model"] = "gpt-3.5-turbo"  # дефолтная модель
+            agents[name] = AgentDefinition(**cfg)
         return cls(agents=agents)
 

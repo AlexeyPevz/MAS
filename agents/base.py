@@ -17,7 +17,7 @@ except Exception:  # pragma: no cover - optional dependency
         def receive(self, message: dict, sender: str) -> None:  # pragma: no cover - stub
             pass
 
-from prompt_io import read_prompt
+from tools.prompt_io import read_prompt
 
 
 # System prompts reside under the repository's ``prompts/agents`` directory.
