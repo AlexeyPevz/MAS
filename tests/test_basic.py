@@ -11,6 +11,14 @@ def test_budget_manager_needs_downgrade() -> None:
     assert manager.needs_downgrade()
 
 
+def test_budget_manager_add_usage() -> None:
+    manager = BudgetManager(daily_limit=1.0)  # $1 daily limit
+    cost = manager.add_usage("gpt-3.5-turbo", prompt_tokens=500, completion_tokens=500)
+    # Для gpt-3.5-turbo это 0.25$ + 0.5$ = 0.75$
+    assert round(cost, 3) == 0.75
+    assert not manager.needs_downgrade()
+
+
 def test_llm_selector_pick_config() -> None:
     tier, model = pick_config("cheap", attempt=1)
     # В конфиге во втором слоте cheap → llama3-8b-instruct

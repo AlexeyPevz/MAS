@@ -33,8 +33,9 @@
 - [ ] `approve_global_prompt_change` — отправка diff в Telegram-бот, запись аудита в git.
 
 ## 5. Budget & LLM tiers
-- [ ] Считывать цены токенов из конфиг-файла (`config/pricing.yaml`).
-- [ ] `budget_manager` — сохранять расходы в Postgres/Redis.
+- [x] Считывать цены токенов из конфиг-файла (`config/pricing.yaml`).
+- [x] `budget_manager` — метод `add_usage`, расчёт стоимости из Pricing.
+- [ ] Опционально сохранять расходы в Postgres/Redis.
 - [ ] В `llm_selector.retry_with_higher_tier` — учитывать бюджет-менеджер.
 
 ## 6. Инструменты (tools/*)
