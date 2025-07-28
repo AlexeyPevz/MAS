@@ -14,26 +14,17 @@ run.py
 import argparse
 import json
 from pathlib import Path
-from typing import Dict, Any
+import sys
 from tools.logging_setup import configure_logging
+sys.path.append(str(Path(__file__).resolve().parents[2]))
+from config_loader import AgentsConfig
 
 
-def load_agents_config(config_path: str = "config/agents.yaml") -> Dict[str, Any]:
-    """Загрузить конфигурацию агентов из YAML.
+def load_agents_config(config_path: str = "config/agents.yaml") -> AgentsConfig:
+    """Загрузить конфигурацию агентов из YAML."""
 
-    Args:
-        config_path: путь к файлу YAML
-
-    Returns:
-        Словарь с настройками агентов.
-    """
-    try:
-        import yaml  # type: ignore
-    except ImportError:
-        raise RuntimeError("Для чтения YAML требуется библиотека PyYAML. Установите её: pip install pyyaml")
     path = Path(__file__).parent / config_path
-    with path.open("r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+    return AgentsConfig.from_yaml(path)
 
 
 def echo_test(goal: str) -> None:
@@ -42,10 +33,8 @@ def echo_test(goal: str) -> None:
     print(f"Цель: {goal}")
     agents_config = load_agents_config()
     print("Настроенные агенты:")
-    for agent_name, data in agents_config.get("agents", {}).items():
-        role = data.get("role")
-        model = data.get("model")
-        print(f"  - {agent_name}: {role} (model tier: {model})")
+    for agent_name, data in agents_config.agents.items():
+        print(f"  - {agent_name}: {data.role} (model: {data.model})")
     print("Система готова к работе. Реализуйте агентов с использованием AutoGen.")
 
 
