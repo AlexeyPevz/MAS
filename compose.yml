@@ -1,8 +1,7 @@
 version: '3.8'
 
-# Docker Compose template for deploying a client MAS instance.  This file is
-# similar to the internal deployment but assumes that each client has its own
-# isolated credentials and resources.
+# Docker Compose template for deploying a client MAS instance with its own
+# storage services.
 
 services:
   postgres:
@@ -19,6 +18,15 @@ services:
     command: redis-server --save 60 1 --loglevel warning
     ports:
       - "${CLIENT_REDIS_PORT:-6380}:6379"
+    volumes:
+      - redis-data:/data
+
+  chroma:
+    image: chromadb/chroma:latest
+    ports:
+      - "${CLIENT_CHROMA_PORT:-8000}:8000"
+    volumes:
+      - chroma-data:/chroma
 
   n8n:
     image: n8nio/n8n:latest
@@ -39,3 +47,5 @@ services:
 
 volumes:
   postgres-data:
+  redis-data:
+  chroma-data:
