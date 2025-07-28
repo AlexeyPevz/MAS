@@ -72,3 +72,20 @@ def approve_global_prompt_change(diff: str) -> bool:
     except KeyboardInterrupt:
         return False
     return answer in {"y", "yes"}
+
+
+class SecurityGuard:
+    """Simple guard that validates potentially dangerous operations."""
+
+    banned_commands = {"rm", "sudo", "apt-get", "docker", "bash", "sh"}
+
+    def is_command_allowed(self, command: str | list[str]) -> bool:
+        tokens = command if isinstance(command, list) else str(command).split()
+        return not any(tok in self.banned_commands for tok in tokens)
+
+    def check_shell(self, command: str | list[str]) -> None:
+        if not self.is_command_allowed(command):
+            raise PermissionError(f"shell access denied: {command}")
+
+
+security_guard = SecurityGuard()
