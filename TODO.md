@@ -40,7 +40,7 @@
 
 ## 6. Инструменты (tools/*)
 - [x] `multitool.call_api` — экспоненциальный backoff, circuit-breaker.
-- [ ] `n8n_client` — auth-header, paginated requests, retry 502/504.
+- [x] `n8n_client` — auth-header, retry/backoff 5xx/timeout.
 - [ ] `wf_builder` — формирование workflow нод на основе спецификации.
 - [ ] `instance_factory` — health-check, rollback on failure.
 - [ ] `researcher` — перейти на SerpAPI / Browserless, добавить кеш.

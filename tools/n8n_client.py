@@ -9,6 +9,8 @@ n8n_client.py
 """
 
 import os
+import time
+import logging
 from typing import Dict, Any, Optional
 
 # В реальной реализации вам понадобятся requests или aiohttp
@@ -19,6 +21,10 @@ except ImportError:
 
 
 TIMEOUT = 10
+
+# Retry/back-off settings
+MAX_RETRIES = int(os.getenv("N8N_RETRIES", "3"))
+BACKOFF_BASE = float(os.getenv("N8N_BACKOFF", "1.5"))  # seconds
 
 
 class N8NClient:
@@ -33,10 +39,29 @@ class N8NClient:
         self.api_key = api_key or os.getenv("N8N_API_KEY", "")
 
     def _headers(self) -> Dict[str, str]:
-        return {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.api_key}",
-        }
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        return headers
+
+    # ------------------------------------------------------------------
+    # Internal helper with retry / back-off
+    # ------------------------------------------------------------------
+
+    def _request(self, method: str, url: str, **kwargs: Any) -> "requests.Response":  # type: ignore[name-defined]
+        backoff = BACKOFF_BASE
+        for attempt in range(1, MAX_RETRIES + 1):
+            try:
+                resp = requests.request(method, url, timeout=TIMEOUT, **kwargs)  # type: ignore[arg-type]
+                if resp.status_code >= 500:
+                    raise RuntimeError(f"{resp.status_code} server error")
+                return resp
+            except Exception as exc:  # pragma: no cover - network errors
+                if attempt == MAX_RETRIES:
+                    raise
+                logging.warning("[n8n_client] %s %s failed (%s), retry %d/%d", method, url, exc, attempt, MAX_RETRIES)
+                time.sleep(backoff)
+                backoff *= 2
 
     def create_workflow(self, workflow_json: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Создать новый workflow в n8n.
@@ -49,11 +74,8 @@ class N8NClient:
         """
         url = f"{self.base_url}/api/v1/workflows"
         try:
-            response = requests.post(
-                url, headers=self._headers(), json=workflow_json, timeout=TIMEOUT
-            )
-            response.raise_for_status()
-            return response.json()
+            resp = self._request("POST", url, headers=self._headers(), json=workflow_json)
+            return resp.json()
         except Exception as exc:  # pragma: no cover - network errors
             print(f"[n8n_client] Ошибка при создании workflow: {exc}")
             return None
@@ -69,8 +91,8 @@ class N8NClient:
         """
         url = f"{self.base_url}/api/v1/workflows/{workflow_id}/activate"
         try:
-            response = requests.post(url, headers=self._headers(), timeout=TIMEOUT)
-            response.raise_for_status()
+            resp = self._request("POST", url, headers=self._headers())
+            resp.raise_for_status()
             return True
         except Exception as exc:  # pragma: no cover - network errors
             print(f"[n8n_client] Ошибка при активации workflow: {exc}")
