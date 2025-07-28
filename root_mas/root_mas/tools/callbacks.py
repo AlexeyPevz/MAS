@@ -12,7 +12,11 @@ Callbacks вызываются агентами в ответ на опреде�
 from typing import Any, Dict, Optional
 import logging
 
-from .llm_selector import retry_with_higher_tier
+from .budget_manager import BudgetManager
+from .llm_selector import retry_with_higher_tier, downgrade_with_budget
+
+# Простой экземпляр менеджера бюджета
+budget_manager = BudgetManager(daily_limit=100.0)
 
 
 def route_instance_creation(params: Dict[str, Any]) -> None:
@@ -73,6 +77,18 @@ def retry_with_higher_tier_callback(current_tier: str, attempt: int) -> None:
         f"[callback] retry_with_higher_tier from {current_tier} attempt {attempt} -> {new_tier} model {model}"
     )
     print(f"[Model‑Selector] Повышаем уровень с {current_tier} до {new_tier}: {model}")
+
+
+def budget_guard_callback(current_tier: str, attempt: int = 0) -> None:
+    """Проверить бюджет и при необходимости понизить уровень модели."""
+    new_tier, model = downgrade_with_budget(current_tier, budget_manager, attempt)
+    if new_tier != current_tier:
+        logging.info(
+            f"[callback] budget_guard downgrade {current_tier} -> {new_tier} model {model}"
+        )
+        print(f"[BudgetGuard] Лимит бюджета достигнут, переходим на {new_tier}: {model}")
+    else:
+        logging.info("[callback] budget_guard budget within limits")
 
 
 def outgoing_to_telegram(message: str) -> None:

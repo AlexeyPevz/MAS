@@ -14,6 +14,7 @@ from .callbacks import (
     route_workflow,
     route_missing_tool,
     retry_with_higher_tier_callback,
+    budget_guard_callback,
     outgoing_to_telegram,
 )
 
@@ -25,6 +26,7 @@ CALLBACK_MATRIX: Dict[str, Callable[..., None]] = {
     "CREATE_WORKFLOW": route_workflow,
     "MISSING_TOOL": route_missing_tool,
     "RETRY_WITH_HIGHER_TIER": retry_with_higher_tier_callback,
+    "BUDGET_GUARD": budget_guard_callback,
     "OUTGOING_TO_TELEGRAM": outgoing_to_telegram,
 }
 
