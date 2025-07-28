@@ -12,6 +12,7 @@ import yaml  # type: ignore
 from pathlib import Path
 from typing import Dict, Any
 from datetime import datetime
+import logging
 
 from .security import get_secret
 
@@ -70,8 +71,27 @@ def deploy_instance(directory: str, env_vars: Dict[str, str], instance_name: str
         for k, v in env_vars.items():
             f.write(f"{k}={v}\n")
     # Запускаем docker compose up -d
-    subprocess.run(["docker", "compose", "up", "-d"], cwd=str(deploy_dir))
-    # Регистрируем инстанс в config/instances.yaml
+    result = subprocess.run(["docker", "compose", "up", "-d"], cwd=str(deploy_dir))
+
+    # Simple health-check: verify at least one service is running
+    healthy = False
+    try:
+        ps = subprocess.run(
+            ["docker", "compose", "ps", "--status=running", "--quiet"],
+            cwd=str(deploy_dir),
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        healthy = ps.returncode == 0 and bool(ps.stdout.strip())
+    except Exception as exc:  # pragma: no cover – docker not available
+        logging.error("[InstanceFactory] health-check error: %s", exc)
+
+    if not healthy:
+        logging.error("[InstanceFactory] containers not healthy, rolling back…")
+        subprocess.run(["docker", "compose", "down"], cwd=str(deploy_dir))
+
+    # Регистрируем инстанс в config/instances.yaml (status depends on health)
     inst_cfg_path = REPO_ROOT / "config" / "instances.yaml"
     if inst_cfg_path.exists():
         with inst_cfg_path.open("r", encoding="utf-8") as f:
@@ -83,7 +103,7 @@ def deploy_instance(directory: str, env_vars: Dict[str, str], instance_name: str
         "type": instance_type,
         "endpoint": env_vars.get("MAS_ENDPOINT", ""),
         "created_at": datetime.utcnow().isoformat() + "Z",
-        "status": "running",
+        "status": "running" if healthy else "failed",
     }
     with inst_cfg_path.open("w", encoding="utf-8") as f:
         yaml.safe_dump(inst_data, f, allow_unicode=True)

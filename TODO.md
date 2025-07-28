@@ -42,7 +42,7 @@
 - [x] `multitool.call_api` — экспоненциальный backoff, circuit-breaker.
 - [x] `n8n_client` — auth-header, retry/backoff 5xx/timeout.
 - [x] `wf_builder` — поддержка DSL `steps:` → генерируются ноды и sequential connections.
-- [ ] `instance_factory` — health-check, rollback on failure.
+- [x] `instance_factory` — health-check (docker compose ps) и rollback on failure.
 - [ ] `researcher` — перейти на SerpAPI / Browserless, добавить кеш.
 - [ ] `fact_checker` — GPT-powered пост-валидация фактов.
 - [ ] `telegram_voice` — перевести на web-hooks, очереди для TTS.
