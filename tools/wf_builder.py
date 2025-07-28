@@ -8,32 +8,48 @@ wf_builder.py
 передаёт её клиенту через `n8n_client`.
 """
 
+import json
 import os
-from typing import Dict, Any
+from typing import Any, Dict
+
+try:
+    import yaml  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    yaml = None  # type: ignore
 
 
 def generate_n8n_json(spec: str) -> Dict[str, Any]:
     """Сгенерировать JSON‑workflow из текстовой спецификации.
 
+    Сначала предпринимается попытка разобрать ``spec`` как JSON или YAML.
+    Это позволяет передавать готовое описание workflow. Если разбор
+    не удался, создаётся минимальный workflow с единственной нодой,
+    содержащей исходный текст спецификации.
+
     Args:
-        spec: текстовое описание задачи (например, "собирать RSS‑ленты и
-        отправлять обновления в Telegram")
+        spec: текстовое описание задачи
 
     Returns:
         Словарь, который может быть отправлен в n8n API для создания workflow.
-
-    Note:
-        В этой заготовке создаётся минимальный workflow с одной нодой
-        комментария. Для реальной генерации необходимо использовать LLM
-        (например, через AutoGen) и шаблоны рецептов.
     """
-    workflow = {
+
+    # Попытаться интерпретировать спецификацию как JSON/YAML
+    for loader in (json.loads, getattr(yaml, "safe_load", None)):
+        if not loader:
+            continue
+        try:
+            data = loader(spec)
+            if isinstance(data, dict) and "nodes" in data:
+                return data
+        except Exception:  # pragma: no cover - invalid spec
+            continue
+
+    # Fallback: минимальный workflow
+    return {
         "name": f"Generated workflow for: {spec[:40]}",
         "nodes": [
             {
-                "parameters": {
-                    "chatInput": spec
-                },
+                "parameters": {"chatInput": spec},
                 "name": "Start",
                 "type": "n8n-nodes-base.start",
                 "typeVersion": 1,
@@ -42,10 +58,9 @@ def generate_n8n_json(spec: str) -> Dict[str, Any]:
         ],
         "connections": {},
     }
-    return workflow
 
 
-def create_workflow(spec: str, n8n_base_url: str | None = None, api_key: str | None = None) -> Any:
+def create_workflow(spec: Any, n8n_base_url: str | None = None, api_key: str | None = None) -> Any:
     """Создать и активировать workflow в n8n.
 
     Args:
@@ -60,7 +75,10 @@ def create_workflow(spec: str, n8n_base_url: str | None = None, api_key: str | N
 
     base_url = n8n_base_url or os.getenv("N8N_URL", "http://localhost:5678")
     key = api_key or os.getenv("N8N_API_KEY", "")
-    workflow_json = generate_n8n_json(spec)
+    if isinstance(spec, dict):
+        workflow_json = spec
+    else:
+        workflow_json = generate_n8n_json(str(spec))
     client = N8NClient(base_url, key)
     result = client.create_workflow(workflow_json)
     if result and result.get("id"):
