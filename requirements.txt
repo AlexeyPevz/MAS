@@ -6,4 +6,5 @@ psycopg2-binary
 chromadb
 schedule
 prometheus_client
+hvac
 gitpython
