@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 import logging
 
+from .budget_manager import BudgetManager
+
 try:
     import yaml  # type: ignore
 except ImportError:
@@ -61,6 +63,15 @@ def next_tier(current_tier: str) -> str:
     return order[min(idx + 1, len(order) - 1)]
 
 
+def previous_tier(current_tier: str) -> str:
+    """Получить предыдущий уровень для понижения каскада."""
+    order = ["cheap", "standard", "premium"]
+    if current_tier not in order:
+        raise ValueError(f"Неизвестный tier: {current_tier}")
+    idx = order.index(current_tier)
+    return order[max(idx - 1, 0)]
+
+
 def retry_with_higher_tier(current_tier: str, attempt: int) -> Tuple[str, Dict[str, str]]:
     """Повысить уровень модели при ошибке и вернуть новую конфигурацию.
 
@@ -83,6 +94,19 @@ def retry_with_higher_tier(current_tier: str, attempt: int) -> Tuple[str, Dict[s
     # Иначе повышаем уровень
     next_level = next_tier(current_tier)
     return pick_config(next_level, attempt=0)
+
+
+def downgrade_with_budget(
+    current_tier: str, manager: BudgetManager, attempt: int = 0
+) -> Tuple[str, Dict[str, str]]:
+    """Понизить уровень модели, если бюджет на исходе."""
+    if manager.needs_downgrade() and current_tier != "cheap":
+        lower = previous_tier(current_tier)
+        logging.warning(
+            "Достигнут лимит бюджета; понижаем уровень с %s до %s", current_tier, lower
+        )
+        return pick_config(lower, attempt=attempt)
+    return pick_config(current_tier, attempt=attempt)
 
 
 if __name__ == "__main__":
