@@ -44,7 +44,7 @@
 - [x] `wf_builder` — поддержка DSL `steps:` → генерируются ноды и sequential connections.
 - [x] `instance_factory` — health-check (docker compose ps) и rollback on failure.
 - [x] `researcher` — SerpAPI backend + Redis cache with DuckDuckGo fallback.
-- [ ] `fact_checker` — GPT-powered пост-валидация фактов.
+- [x] `fact_checker` — GPT-powered validation with Redis cache + heuristic fallback.
 - [ ] `telegram_voice` — перевести на web-hooks, очереди для TTS.
 
 ## 7. Тесты
