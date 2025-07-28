@@ -9,6 +9,7 @@ postgres_store.py
 
 from typing import Any, Iterable, Optional
 import os
+from tools.security import get_secret
 
 try:
     import psycopg2  # type: ignore
@@ -32,11 +33,11 @@ class PostgresStore:
             raise RuntimeError(
                 "Для работы PostgresStore требуется библиотека psycopg2. Установите её: pip install psycopg2-binary"
             )
-        self.host = host or os.getenv("POSTGRES_HOST", "localhost")
-        self.port = port or int(os.getenv("POSTGRES_PORT", "5432"))
-        self.dbname = dbname or os.getenv("POSTGRES_DB", "mas")
-        self.user = user or os.getenv("POSTGRES_USER", "mas")
-        self.password = password or os.getenv("POSTGRES_PASSWORD", "maspass")
+        self.host = host or get_secret("POSTGRES_HOST") or "localhost"
+        self.port = port or int(get_secret("POSTGRES_PORT") or os.getenv("POSTGRES_PORT", "5432"))
+        self.dbname = dbname or get_secret("POSTGRES_DB") or "mas"
+        self.user = user or get_secret("POSTGRES_USER") or "mas"
+        self.password = password or get_secret("POSTGRES_PASSWORD") or "maspass"
         self.conn = psycopg2.connect(
             host=self.host,
             port=self.port,

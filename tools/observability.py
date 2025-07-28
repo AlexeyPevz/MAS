@@ -29,14 +29,29 @@ if Counter and Histogram:
         "Общее количество использованных токенов",
         ["agent"],
     )
+    requests_counter = Counter(
+        "mas_requests_total",
+        "Количество запросов к LLM",
+        ["agent"],
+    )
+    errors_counter = Counter(
+        "mas_errors_total",
+        "Количество ошибок при обработке запросов",
+        ["agent"],
+    )
     task_duration = Histogram(
         "mas_task_seconds",
         "Время выполнения задач",
         ["agent"],
     )
+    response_time = Histogram(
+        "mas_response_seconds",
+        "Время ответа LLM",
+        ["agent"],
+    )
 
 
-def start_metrics_server(port: int = 8000) -> None:
+def start_metrics_server(port: int = 9000) -> None:
     """Start HTTP server that exposes Prometheus metrics."""
 
     if start_http_server:
@@ -50,8 +65,26 @@ def record_tokens(agent: str, amount: int) -> None:
         tokens_counter.labels(agent=agent).inc(amount)
 
 
+def record_request(agent: str) -> None:
+    """Увеличить счётчик запросов."""
+    if Counter:
+        requests_counter.labels(agent=agent).inc()
+
+
+def record_error(agent: str) -> None:
+    """Увеличить счётчик ошибок."""
+    if Counter:
+        errors_counter.labels(agent=agent).inc()
+
+
 def observe_duration(agent: str, seconds: float) -> None:
     """Записать длительность выполнения задачи."""
     if Histogram:
         task_duration.labels(agent=agent).observe(seconds)
+
+
+def observe_response_time(agent: str, seconds: float) -> None:
+    """Записать время ответа LLM."""
+    if Histogram:
+        response_time.labels(agent=agent).observe(seconds)
 

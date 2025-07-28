@@ -10,6 +10,8 @@ gpt_pilot.py
 import os
 from typing import Dict, Any, Optional
 
+from .security import get_secret
+
 try:
     import requests  # type: ignore
 except ImportError:  # pragma: no cover - optional dependency
@@ -17,7 +19,7 @@ except ImportError:  # pragma: no cover - optional dependency
 
 
 BASE_URL = os.getenv("GPT_PILOT_URL", "http://localhost:8000")
-API_KEY = os.getenv("GPT_PILOT_API_KEY", "")
+API_KEY = get_secret("GPT_PILOT_API_KEY") or ""
 
 
 def _headers() -> Dict[str, str]:

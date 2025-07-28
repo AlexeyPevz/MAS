@@ -11,6 +11,8 @@ n8n_client.py
 import os
 from typing import Dict, Any, Optional
 
+from .security import get_secret
+
 # В реальной реализации вам понадобятся requests или aiohttp
 try:
     import requests  # type: ignore
@@ -30,7 +32,7 @@ class N8NClient:
                 "Библиотека requests не установлена. Установите её для работы n8n_client."
             )
         self.base_url = (base_url or os.getenv("N8N_URL", "http://localhost:5678")).rstrip("/")
-        self.api_key = api_key or os.getenv("N8N_API_KEY", "")
+        self.api_key = api_key or get_secret("N8N_API_KEY") or ""
 
     def _headers(self) -> Dict[str, str]:
         return {
@@ -80,7 +82,7 @@ class N8NClient:
 if __name__ == "__main__":
     # Пример использования клиента
     base = os.getenv("N8N_URL", "http://localhost:5678")
-    key = os.getenv("N8N_API_KEY", "changeme")
+    key = get_secret("N8N_API_KEY") or "changeme"
     client = N8NClient(base, key)
     workflow = {
         "name": "Echo Workflow",

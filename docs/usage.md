@@ -22,7 +22,8 @@ python run.py --goal "echo"
 python examples/workflow_demo.py
 ```
 
-Скрипт создаст черновик workflow в n8n и активирует его при наличии `N8N_URL` и `N8N_API_KEY` в переменных окружения.
+Скрипт создаст черновик workflow в n8n и активирует его при наличии `N8N_URL`
+и ключа в Vault (`N8N_API_KEY`).
 
 ## Запрос web‑приложения через GPT‑Pilot
 

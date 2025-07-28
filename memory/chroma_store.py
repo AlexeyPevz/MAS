@@ -8,6 +8,7 @@ chroma_store.py
 """
 
 from typing import List, Optional
+import os
 
 try:
     import chromadb  # type: ignore
@@ -18,12 +19,14 @@ except ImportError:  # pragma: no cover - optional dependency
 
 
 class ChromaStore:
-    def __init__(self, host: str = "localhost", port: int = 8000) -> None:
+    def __init__(self, host: str | None = None, port: int | None = None) -> None:
         if chromadb is None:
             raise RuntimeError(
                 "Для работы ChromaStore требуется библиотека chromadb. Установите её: pip install chromadb"
             )
-        self.client = HttpClient(host=host, port=port)
+        self.host = host or os.getenv("CHROMA_HOST", "localhost")
+        self.port = port or int(os.getenv("CHROMA_PORT", "8000"))
+        self.client = HttpClient(host=self.host, port=self.port)
 
     def get_or_create_collection(self, name: str):
         return self.client.get_or_create_collection(name)
