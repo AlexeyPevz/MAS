@@ -26,11 +26,14 @@ def load_llm_tiers(config_path: Path) -> Dict[str, List[str]]:
     """
     with config_path.open('r', encoding='utf-8') as f:
         data = yaml.safe_load(f)
-    # ensure tiers exist
+
+    # configuration may either provide tiers at the top level or under the
+    # ``tiers`` key; support both for compatibility
+    tiers = data.get('tiers', data)
     return {
-        'cheap': data.get('cheap', []),
-        'standard': data.get('standard', []),
-        'premium': data.get('premium', []),
+        'cheap': tiers.get('cheap', []),
+        'standard': tiers.get('standard', []),
+        'premium': tiers.get('premium', []),
     }
 
 
@@ -61,7 +64,16 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    config_path = Path(__file__).parent / 'config' / 'llm_tiers.yaml'
+    # Load the central configuration shipped under ``root_mas/root_mas``.  All
+    # YAML files live in that directory so we keep the lookup path explicit
+    # relative to this script.
+    config_path = (
+        Path(__file__).parent
+        / 'root_mas'
+        / 'root_mas'
+        / 'config'
+        / 'llm_tiers.yaml'
+    )
     tiers = load_llm_tiers(config_path)
     model = pick_model(tiers)
     if not model:
