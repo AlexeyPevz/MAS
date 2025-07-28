@@ -119,9 +119,9 @@ class MultiToolAgent(BaseAgent):
         super().__init__("multitool", model)
 
     def call_api(self, api_name: str, params: Dict[str, Any]) -> Any:
-        from tools.multitool import call_api
+        from tools.multitool import call
 
-        return call_api(api_name, params)
+        return call(api_name, params)
 
 
 @dataclass
