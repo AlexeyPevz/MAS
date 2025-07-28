@@ -32,7 +32,7 @@ Root-MAS provides a lightweight skeleton for building a multi‑agent system wit
    pip install -r requirements.txt
    ```
 
-2. **Configure environment variables.**  Copy `.env.example` to `.env` and fill in the API keys (`OPENROUTER_API_KEY`, `YANDEX_API_KEY`, `YANDEX_FOLDER_ID`, `N8N_API_TOKEN`, `TELEGRAM_BOT_TOKEN`).
+2. **Configure environment variables.**  Copy `.env.example` to `.env` and fill in the API keys (`OPENROUTER_API_KEY`, `YANDEX_API_KEY`, `YANDEX_FOLDER_ID`, `N8N_API_TOKEN`, `TELEGRAM_BOT_TOKEN`).  Adjust connection settings for PostgreSQL, Redis and ChromaDB if needed.
 
 3. **Start supporting services.**  Launch the containers with Docker Compose.  For an internal instance run:
 
@@ -44,7 +44,13 @@ Root-MAS provides a lightweight skeleton for building a multi‑agent system wit
 
    This starts PostgreSQL, Redis, ChromaDB and n8n.  For a client deployment use `deploy/client/compose.yml` or the top‑level `compose.yml`.
 
-4. **Run an echo test.**
+4. **Initialise the database.**  Once the services are running, apply the SQL migrations:
+
+   ```bash
+   python examples/init_db.py
+   ```
+
+5. **Run an echo test.**
 
    ```bash
    python run.py --goal "echo"
@@ -59,6 +65,7 @@ Several demos under [`examples/`](examples) showcase common flows:
 - [`examples/echo_demo.py`](examples/echo_demo.py) – interactive echo test using the model picker.
 - [`examples/workflow_demo.py`](examples/workflow_demo.py) – generate and activate an n8n workflow.
 - [`examples/webapp_demo.py`](examples/webapp_demo.py) – request a web application from GPT‑Pilot.
+- [`examples/init_db.py`](examples/init_db.py) – apply SQL migrations for PostgreSQL.
 
 Explore these scripts to understand how the helper modules in `tools/` are intended to work.
 

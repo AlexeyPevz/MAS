@@ -13,5 +13,6 @@
 | `tools/n8n_client.py` | Мини‑клиент для работы с n8n REST API. |
 | `tools/webapp_builder.py` | Взаимодействие с GPT‑Pilot для генерации веб‑приложений. |
 | `memory/` | Клиенты для Redis, PostgreSQL и ChromaDB. |
+| `examples/init_db.py` | Применение SQL‑миграций для инициализации базы данных. |
 
 Диаграмма архитектуры находится в файле [`architecture.svg`](architecture.svg). Она демонстрирует связи между слоями системы и внешними сервисами.
