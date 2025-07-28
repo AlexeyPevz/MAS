@@ -55,7 +55,11 @@ class CommunicatorAgent(ConversableAgent):
         `run_telegram_bot` function.  In a full implementation this call
         blocks until the bot is stopped.
         """
-        run_telegram_bot(token=self.config.telegram_token, speechkit_client=self.speechkit)
+        run_telegram_bot(
+            token=self.config.telegram_token,
+            speechkit_client=self.speechkit,
+            forward_callback=self.forward_to_groupchat,
+        )
 
     def forward_to_groupchat(self, text: str) -> None:
         """Forward user text to the MAS group chat.

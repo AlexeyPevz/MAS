@@ -9,7 +9,7 @@ Callbacks вызываются агентами в ответ на опреде�
 интеграционных механизмов и должна быть дополнена.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Callable
 import logging
 
 from .budget_manager import BudgetManager
@@ -17,6 +17,16 @@ from .llm_selector import retry_with_higher_tier, downgrade_with_budget
 
 # Простой экземпляр менеджера бюджета
 budget_manager = BudgetManager(daily_limit=100.0)
+
+# Хранилище функции отправки сообщений в Telegram.
+_telegram_sender: Optional[Callable[[str], None]] = None
+
+
+def register_telegram_sender(func: Callable[[str], None]) -> None:
+    """Register a callable used to send messages to Telegram."""
+
+    global _telegram_sender
+    _telegram_sender = func
 
 
 def route_instance_creation(params: Dict[str, Any]) -> None:
@@ -102,5 +112,7 @@ def outgoing_to_telegram(message: str) -> None:
         который пересылает ответы пользователю. В заглушке сообщение печатается в консоль.
     """
     logging.info(f"[callback] outgoing_to_telegram: {message}")
-    # TODO: интеграция с Telegram через TelegramVoiceBot
-    print(f"[TG] {message}")
+    if _telegram_sender is not None:
+        _telegram_sender(message)
+    else:
+        print(f"[TG] {message}")
