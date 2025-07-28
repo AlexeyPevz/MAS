@@ -37,3 +37,17 @@ def test_get_prompt_history(monkeypatch, tmp_path):
     monkeypatch.setattr(subprocess, "run", fake_run)
     result = pb.get_prompt_history("demo", limit=2)
     assert result == "LOG"
+
+
+def test_update_creates_version(monkeypatch, tmp_path):
+    monkeypatch.setattr(pb, "REPO_ROOT", tmp_path)
+    commits = []
+    monkeypatch.setattr(pb, "git_commit", lambda paths, message: commits.append((list(paths), message)))
+
+    pb.create_agent_prompt("demo", "v1")
+    pb.update_agent_prompt("demo", "v2")
+
+    version_file = tmp_path / "prompts" / "agents" / "demo" / "versions" / "v1.md"
+    assert version_file.exists()
+    assert version_file.read_text() == "v1\n"
+    assert any("Snapshot" in msg for _, msg in commits)

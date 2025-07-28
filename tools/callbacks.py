@@ -41,8 +41,23 @@ def route_instance_creation(params: Dict[str, Any]) -> None:
         развертывания информация должна быть добавлена в config/instances.yaml.
     """
     logging.info(f"[callback] route_instance_creation called with {params}")
-    # TODO: вызвать Instance‑Factory и обновить config/instances.yaml
-    print("[Instance‑Factory] Развертывание нового MAS инстанса... (заглушка)")
+    instance_type = params.get("type", "internal")
+    env: Dict[str, str] = params.get("env", {})
+    auto = params.get("auto", True)
+    try:
+        from .instance_factory import auto_deploy_instance, deploy_instance
+
+        if auto:
+            name = auto_deploy_instance(instance_type, env)
+        else:
+            directory = params.get("directory", f"deploy/{instance_type}")
+            name = params.get("name", instance_type)
+            deploy_instance(directory, env, name, instance_type)
+
+        print(f"[Instance-Factory] Инстанс {name} запущен")
+    except Exception as exc:  # pragma: no cover - optional integration
+        logging.error("[callback] instance creation failed: %s", exc)
+        print(f"[Instance-Factory] Ошибка развёртывания: {exc}")
 
 
 def route_workflow(params: Dict[str, Any]) -> None:
@@ -52,7 +67,6 @@ def route_workflow(params: Dict[str, Any]) -> None:
         params: словарь со спецификацией workflow
     """
     logging.info(f"[callback] route_workflow called with {params}")
-    # TODO: вызов WF‑Builder, проверка Fact‑Checker и отправка в n8n via n8n_client
     spec = params.get("spec", "")
     n8n_url = params.get("n8n_url") or "http://localhost:5678"
     api_key = params.get("api_key") or ""
@@ -71,8 +85,17 @@ def route_missing_tool(tool_name: str) -> None:
         tool_name: имя инструмента, который отсутствует
     """
     logging.info(f"[callback] route_missing_tool called for tool: {tool_name}")
-    # TODO: Агент Prompt‑Builder должен создать промпт, а затем Agent‑Builder создать инструмент
-    print(f"[Prompt‑Builder] Требуется создать новый инструмент: {tool_name} (заглушка)")
+    try:
+        from .prompt_builder import create_agent_prompt
+        from autogen import agentchat
+
+        prompt_text = f"Placeholder prompt for tool {tool_name}"
+        create_agent_prompt(tool_name, prompt_text)
+        agentchat.build_from_spec({"name": tool_name})  # type: ignore[arg-type]
+        print(f"[Agent-Builder] Инструмент {tool_name} создан")
+    except Exception as exc:  # pragma: no cover - optional integration
+        logging.error("[callback] tool generation failed: %s", exc)
+        print(f"[Prompt-Builder] Не удалось создать инструмент {tool_name}: {exc}")
 
 
 def retry_with_higher_tier_callback(current_tier: str, attempt: int) -> None:
