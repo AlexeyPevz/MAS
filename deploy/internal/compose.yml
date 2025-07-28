@@ -19,6 +19,27 @@ services:
       - chroma
     restart: unless-stopped
 
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command: --config.file=/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    depends_on:
+      - autogen
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
   n8n:
     image: n8nio/n8n:latest
     ports:
@@ -63,3 +84,4 @@ volumes:
   redis-data:
   pg-data:
   chroma-data:
+  grafana-data:

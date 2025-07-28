@@ -62,6 +62,14 @@ Several demos under [`examples/`](examples) showcase common flows:
 
 Explore these scripts to understand how the helper modules in `tools/` are intended to work.
 
+## Observability
+
+Prometheus and Grafana services are included under
+`deploy/internal`. Run `docker compose up -d` in that directory and the
+metrics endpoint at `autogen:9000` will be scraped automatically.
+Refer to [`docs/observability.md`](docs/observability.md) for details
+on dashboards and alerting.
+
 ## Development notes
 
 * Many modules are placeholders and should be expanded during future sprints.
