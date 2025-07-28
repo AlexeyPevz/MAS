@@ -8,6 +8,8 @@ used by the Communicator agent.
 
 import logging
 from typing import Any, Dict
+import os
+from telegram import Bot
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +28,14 @@ def outgoing_to_telegram(message: Dict[str, Any]) -> None:
     """
     content = message.get("content", "")
     logger.info("Outgoing message to Telegram: %s", content)
-    # TODO: retrieve Communicator instance and call its send method
-    # e.g. communicator.send_text(content) or communicator.send_voice(audio_bytes)
-    raise NotImplementedError("Outgoing Telegram callback not implemented")
+
+    token = os.getenv("TELEGRAM_TOKEN")
+    chat_id = os.getenv("TELEGRAM_CHAT_ID")
+    if not token or not chat_id:
+        logger.error("Telegram credentials are not configured")
+        return
+
+    try:
+        Bot(token=token).send_message(chat_id=chat_id, text=content)
+    except Exception as exc:  # pragma: no cover
+        logger.error("Failed to send Telegram message: %s", exc)

@@ -15,10 +15,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
+import logging
 
 from autogen.agentchat import ConversableAgent
 
-from ..tools.telegram_voice import SpeechKitClient, run_telegram_bot
+from .telegram_voice import SpeechKitClient, run_telegram_bot
 
 
 @dataclass
@@ -43,6 +44,7 @@ class CommunicatorAgent(ConversableAgent):
         # Initialise the parent ConversableAgent with a fixed model; the
         # Communicator does not perform heavy reasoning itself.
         super().__init__(name=name, llm_config={"model": llm_model}, *args, **kwargs)
+        self.logger = logging.getLogger(__name__)
         self.config = config
         self.speechkit = SpeechKitClient(api_key=config.speechkit_api_key)
 
@@ -62,5 +64,10 @@ class CommunicatorAgent(ConversableAgent):
         group chat manager or publish the message to a message queue.  Here
         it is provided as a placeholder to be completed in a future sprint.
         """
-        # TODO: implement routing of user messages into the MAS
-        raise NotImplementedError("Forwarding to group chat not implemented")
+        try:
+            self.send(  # type: ignore[arg-type]
+                {"role": "user", "content": text},
+                conversation_id="groupchat",
+            )
+        except Exception as exc:  # pragma: no cover - runtime integration
+            self.logger.error("failed to forward to group chat: %s", exc)
