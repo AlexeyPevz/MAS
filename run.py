@@ -61,7 +61,10 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    config_path = Path(__file__).parent / 'config' / 'llm_tiers.yaml'
+    # Конфигурационные файлы располагаются в пакете root_mas/root_mas
+    config_path = (
+        Path(__file__).parent / 'root_mas' / 'root_mas' / 'config' / 'llm_tiers.yaml'
+    )
     tiers = load_llm_tiers(config_path)
     model = pick_model(tiers)
     if not model:

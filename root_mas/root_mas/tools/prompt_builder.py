@@ -39,7 +39,7 @@ def create_agent_prompt(agent_name: str, content: str) -> None:
     if agent_name.lower() == "global":
         raise PermissionError("Редактирование глобального промпта запрещено.")
     path = REPO_ROOT / "prompts" / "agents" / agent_name / "system.md"
-    write_prompt(str(path), [content])
+    write_prompt(str(path), content)
     git_commit([str(path.relative_to(REPO_ROOT))], f"Add system prompt for agent {agent_name}")
 
 

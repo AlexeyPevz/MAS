@@ -26,7 +26,20 @@ except ImportError:
     Bot = None  # type: ignore
 
 
-def stt(file_path: str) -> str:
+class SpeechKitClient:
+    """Мини‑клиент Yandex SpeechKit для STT и TTS."""
+
+    def __init__(self, api_key: str) -> None:
+        self.api_key = api_key
+
+    def stt(self, file_path: str) -> str:
+        return stt(file_path, api_key=self.api_key)
+
+    def tts(self, text: str) -> bytes:
+        return tts(text, api_key=self.api_key)
+
+
+def stt(file_path: str, api_key: Optional[str] = None) -> str:
     """Преобразовать голосовой файл (OGG) в текст с помощью Yandex SpeechKit.
 
     Args:
@@ -40,7 +53,7 @@ def stt(file_path: str) -> str:
     except ImportError:
         raise RuntimeError("Для работы STT требуется библиотека requests. Установите её: pip install requests")
 
-    yandex_api_key = os.getenv("YA_SPEECHKIT_API_KEY")
+    yandex_api_key = api_key or os.getenv("YA_SPEECHKIT_API_KEY")
     if not yandex_api_key:
         logging.error("Не указан YA_SPEECHKIT_API_KEY в .env")
         return ""
@@ -64,7 +77,7 @@ def stt(file_path: str) -> str:
     return result.get("result", "")
 
 
-def tts(text: str) -> bytes:
+def tts(text: str, api_key: Optional[str] = None) -> bytes:
     """Сгенерировать голосовой ответ из текста через Yandex SpeechKit.
 
     Args:
@@ -78,7 +91,7 @@ def tts(text: str) -> bytes:
     except ImportError:
         raise RuntimeError("Для работы TTS требуется библиотека requests. Установите её: pip install requests")
 
-    yandex_api_key = os.getenv("YA_SPEECHKIT_API_KEY")
+    yandex_api_key = api_key or os.getenv("YA_SPEECHKIT_API_KEY")
     if not yandex_api_key:
         logging.error("Не указан YA_SPEECHKIT_API_KEY в .env")
         return b""
@@ -104,12 +117,13 @@ def tts(text: str) -> bytes:
 class TelegramVoiceBot:
     """Простейший long‑polling бот для приёма текстовых и голосовых сообщений."""
 
-    def __init__(self, token: str):
+    def __init__(self, token: str, speechkit_client: Optional[SpeechKitClient] = None):
         if Bot is None:
             raise RuntimeError(
                 "Не установлена библиотека python-telegram-bot. Установите её для работы Telegram‑бота."
             )
         self.token = token
+        self.speechkit = speechkit_client or SpeechKitClient(os.getenv("YA_SPEECHKIT_API_KEY", ""))
         self.bot = Bot(token=token)
         self.updater = Updater(token, use_context=True)
         dispatcher = self.updater.dispatcher
@@ -127,7 +141,7 @@ class TelegramVoiceBot:
         """Обработка входящего голосового сообщения."""
         file = update.message.voice.get_file()
         file_path = file.download()
-        transcript = stt(file_path)
+        transcript = self.speechkit.stt(file_path)
         # Отправляем текст транскрипции обратно или передаём в Root GroupChat
         # Здесь можно вызвать Root GroupChat, а затем отправить результат
         update.message.reply_text(transcript)
@@ -147,9 +161,16 @@ class TelegramVoiceBot:
         self.updater.idle()
 
 
+def run_telegram_bot(token: str, speechkit_client: Optional[SpeechKitClient] = None) -> None:
+    """Упрощённый запуск Telegram‑бота."""
+    bot = TelegramVoiceBot(token, speechkit_client=speechkit_client)
+    bot.run()
+
+
 if __name__ == "__main__":
     token = os.getenv("TELEGRAM_TOKEN")
+    key = os.getenv("YA_SPEECHKIT_API_KEY", "")
     if not token:
         raise RuntimeError("Не указан TELEGRAM_TOKEN в переменных окружения")
-    bot = TelegramVoiceBot(token)
-    bot.run()
+    client = SpeechKitClient(api_key=key)
+    run_telegram_bot(token, speechkit_client=client)

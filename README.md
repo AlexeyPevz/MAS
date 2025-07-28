@@ -38,7 +38,7 @@ root_mas/
     python run.py --goal "echo"
     ```
 
-    The script will read `config/llm_tiers.yaml` and select a model from the cheapest tier to handle your goal.  It will then print which model would have been used.  In a real deployment the call to the large language model would occur here.
+    The script will read `root_mas/root_mas/config/llm_tiers.yaml` and select a model from the cheapest tier to handle your goal.  It will then print which model would have been used.  In a real deployment the call to the large language model would occur here.
 
 4.  Gradually extend the code base by implementing the stubs in `tools/` and adding additional agents and prompts as described in the specification.  See the `config/agents.yaml` file for a list of the core agents and their responsibilities.
 

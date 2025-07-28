@@ -9,7 +9,9 @@ fact_checker.py
 валидация на наличие ключевых слов.
 """
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+
+from .cron import CronScheduler
 
 
 def validate_sources(sources: List[Dict[str, Any]]) -> bool:
@@ -36,3 +38,17 @@ def validate_sources(sources: List[Dict[str, Any]]) -> bool:
             if word in url.lower() or word in title.lower():
                 return False
     return True
+
+
+def schedule_fact_check(sources: List[Dict[str, Any]], interval: int, scheduler: Optional[CronScheduler] = None) -> CronScheduler:
+    """Periodically validate a set of sources using :class:`CronScheduler`."""
+
+    scheduler = scheduler or CronScheduler()
+
+    def job() -> None:
+        ok = validate_sources(sources)
+        result = "ok" if ok else "failed"
+        print(f"[FactChecker] validation {result} for {len(sources)} sources")
+
+    scheduler.add_job(job, interval)
+    return scheduler
