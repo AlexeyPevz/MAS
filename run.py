@@ -9,32 +9,19 @@ user's goal.
 
 import argparse
 import sys
-import yaml
 from pathlib import Path
-from typing import Dict, List
 
 
-def load_llm_tiers(config_path: Path) -> Dict[str, List[str]]:
-    """Load the LLM tier configuration from YAML.
-
-    Args:
-        config_path: Path to the `llm_tiers.yaml` file.
-
-    Returns:
-        A dictionary mapping tier names (cheap, standard, premium) to lists of
-        model identifiers.
-    """
-    with config_path.open('r', encoding='utf-8') as f:
-        data = yaml.safe_load(f)
-    # ensure tiers exist
-    return {
-        'cheap': data.get('cheap', []),
-        'standard': data.get('standard', []),
-        'premium': data.get('premium', []),
-    }
+from config_loader import LlmTiers, load_dataclass
 
 
-def pick_model(tiers: Dict[str, List[str]]) -> str:
+def load_llm_tiers(config_path: Path) -> LlmTiers:
+    """Load the LLM tier configuration from YAML into a dataclass."""
+
+    return load_dataclass(config_path, LlmTiers)
+
+
+def pick_model(tiers: LlmTiers) -> str:
     """Pick the first available model from the lowest tier.
 
     The selection logic iterates through the tiers in order of increasing
@@ -48,7 +35,7 @@ def pick_model(tiers: Dict[str, List[str]]) -> str:
         are configured.
     """
     for tier in ['cheap', 'standard', 'premium']:
-        models = tiers.get(tier, [])
+        models = getattr(tiers, tier)
         if models:
             return models[0]
     return ""
@@ -61,7 +48,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    config_path = Path(__file__).parent / 'config' / 'llm_tiers.yaml'
+    config_path = Path(__file__).parent / 'llm_tiers.yaml'
     tiers = load_llm_tiers(config_path)
     model = pick_model(tiers)
     if not model:

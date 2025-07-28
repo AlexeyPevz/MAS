@@ -28,3 +28,5 @@ def configure_logging(log_dir: str = "logs", level: int = logging.INFO) -> None:
             logging.StreamHandler(),
         ],
     )
+
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
