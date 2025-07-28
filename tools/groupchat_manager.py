@@ -4,7 +4,7 @@ from typing import Dict, List
 
 from autogen.agentchat import GroupChat, GroupChatManager, ConversableAgent
 
-from tools.callback_matrix import handle_event
+from .callback_matrix import handle_event
 
 
 class RootGroupChatManager(GroupChatManager):
