@@ -16,7 +16,12 @@
 - [ ] Удалить fallback-классы в `agents/base.py` (ConversableAgent) при наличии AutoGen.
 - [ ] Удалить fallback-классы в `tools/groupchat_manager.py`.
 - [ ] Пройтись по всем модулям, где `try … except ImportError` → убедиться, что настоящие импорты работают.
-- [ ] Заменить системные промпты агентов на расширенные (папка `prompts/agents/*`), сформулировать сильные роли и инструкции.
+- [ ] Расширить структуру промптов:
+  - system.md (базовая роль агента)
+  - task_*.md (специализированные промпты под разные задачи)
+  - optional: reflexion.md / critique.md для self-eval
+- [ ] Подготовить расширенные промпты для ключевых агентов: meta, agent_builder, model_selector, coordination, prompt_builder.
+- [ ] Обновить BaseAgent / PromptBuilder, чтобы могли загружать отдельные task-промпты по запросу.
 
 ## 3. Observability
 - [ ] Убедиться, что при наличии `prometheus_client` метрики регистрируются.
