@@ -3,19 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-try:
-    from autogen.agentchat import ConversableAgent
-except Exception:  # pragma: no cover - optional dependency
-    class ConversableAgent:  # type: ignore[too-few-public-methods]
-        """Fallback stub when AutoGen is unavailable."""
-
-        def __init__(self, name: str, llm_config: dict | None = None, system_message: str | None = None, *args: Any, **kwargs: Any) -> None:  # noqa: D401
-            self.name = name
-            self.llm_config = llm_config or {}
-            self.system_message = system_message or ""
-
-        def receive(self, message: dict, sender: str) -> None:  # pragma: no cover - stub
-            pass
+# Требуемый импорт AutoGen. При отсутствии библиотеки завершится ImportError,
+# что позволит CI выявить проблему на этапе установки зависимостей.
+from autogen.agentchat import ConversableAgent
 
 from prompt_io import read_prompt
 
