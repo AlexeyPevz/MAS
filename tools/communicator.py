@@ -75,3 +75,16 @@ class CommunicatorAgent(ConversableAgent):
             )
         except Exception as exc:  # pragma: no cover - runtime integration
             self.logger.error("failed to forward to group chat: %s", exc)
+
+    def receive(self, message: dict, sender: str) -> None:  # type: ignore[override]
+        """Relay assistant responses back to Telegram."""
+        if sender == "groupchat" and isinstance(message, dict):
+            text = message.get("content")
+            if isinstance(text, str) and text:
+                from .callbacks import outgoing_to_telegram
+
+                try:
+                    outgoing_to_telegram(text)
+                except Exception as exc:  # pragma: no cover - runtime integration
+                    self.logger.error("failed to send telegram message: %s", exc)
+        super().receive(message, sender)
