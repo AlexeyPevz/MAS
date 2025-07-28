@@ -1,0 +1,7 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: mas
+    static_configs:
+      - targets: ['autogen:9000']
