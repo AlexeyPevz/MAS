@@ -16,6 +16,8 @@ services:
       CLIENT_REDIS_HOST: redis
       # Prometheus metrics exporter port
       PROMETHEUS_PORT: 9000
+      # MAS Goal configuration
+      MAS_GOAL: ${MAS_GOAL:-echo}
     depends_on:
       - postgres
       - redis
