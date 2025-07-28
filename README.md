@@ -84,3 +84,9 @@ on dashboards and alerting.
 * Additional design documents are available in [`docs/`](docs). See
   [`docs/usage.md`](docs/usage.md) for usage examples and
   [`docs/api.md`](docs/api.md) for an overview of available modules.
+
+## Approval process for critical changes
+
+Changes to global prompts under `prompts/global` and all files in `deploy/`
+require explicit approval. Pull requests touching these paths must have a
+GPG-signed commit and must be reviewed by @AlexeyPevz before merging.

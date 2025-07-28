@@ -1,0 +1,23 @@
+name: approval-check
+
+on:
+  pull_request:
+    paths:
+      - 'prompts/global/**'
+      - 'deploy/**'
+
+jobs:
+  verify-signature:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Check commit signature
+        run: |
+          STATUS=$(git log -1 --pretty=%G?)
+          if [ "$STATUS" = "N" ]; then
+            echo "Head commit is not signed. Please sign the commit or provide an external signature." >&2
+            exit 1
+          fi
+
