@@ -24,7 +24,7 @@ try:
     from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 except ImportError:
     # Библиотеки могут отсутствовать в окружении, оставляем заглушки
-Bot = None  # type: ignore
+    Bot = None  # type: ignore
 
 
 @dataclass

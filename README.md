@@ -66,4 +66,6 @@ Explore these scripts to understand how the helper modules in `tools/` are inten
 
 * Many modules are placeholders and should be expanded during future sprints.
 * The model cascade in `config/llm_tiers.yaml` lists LLMs in order of cost.  Adjust it for your providers.
-* Additional design documents are available in [`docs/`](docs).
+* Additional design documents are available in [`docs/`](docs). See
+  [`docs/usage.md`](docs/usage.md) for usage examples and
+  [`docs/api.md`](docs/api.md) for an overview of available modules.
