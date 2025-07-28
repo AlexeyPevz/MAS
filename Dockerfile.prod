@@ -39,4 +39,4 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 ENV MAS_GOAL="echo"
 
 ENTRYPOINT ["python", "run.py"]
-CMD ["--goal", "${MAS_GOAL}"]
+CMD ["--goal", "$MAS_GOAL"]

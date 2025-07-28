@@ -71,7 +71,21 @@ OPENROUTER_API_KEY=ваш_ключ_openrouter
 YANDEX_API_KEY=ваш_ключ_yandex
 YANDEX_FOLDER_ID=ваш_folder_id
 CLIENT_POSTGRES_PASSWORD=безопасный_пароль
+
+# MAS Goal - задача для мультиагентной системы
+MAS_GOAL="echo"  # или любая другая задача
 ```
+
+### 🎯 Примеры целей (MAS_GOAL):
+```bash
+MAS_GOAL="echo"                          # Тест системы
+MAS_GOAL="summarise the README"          # Анализ документации
+MAS_GOAL="analyze project structure"     # Анализ кода
+MAS_GOAL="create user manual"            # Создание документации
+MAS_GOAL="optimize database queries"     # Оптимизация
+```
+
+📚 Больше примеров в `docs/mas_goals_examples.md`
 
 ## 🆘 Если что-то пошло не так:
 
