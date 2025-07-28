@@ -11,6 +11,8 @@ wf_builder.py
 import os
 from typing import Dict, Any
 
+from .security import get_secret
+
 
 def generate_n8n_json(spec: str) -> Dict[str, Any]:
     """Сгенерировать JSON‑workflow из текстовой спецификации.
@@ -59,7 +61,7 @@ def create_workflow(spec: str, n8n_base_url: str | None = None, api_key: str | N
     from .n8n_client import N8NClient
 
     base_url = n8n_base_url or os.getenv("N8N_URL", "http://localhost:5678")
-    key = api_key or os.getenv("N8N_API_KEY", "")
+    key = api_key or get_secret("N8N_API_KEY") or ""
     workflow_json = generate_n8n_json(spec)
     client = N8NClient(base_url, key)
     result = client.create_workflow(workflow_json)

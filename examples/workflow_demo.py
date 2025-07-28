@@ -1,5 +1,6 @@
 """Demo for generating and activating an n8n workflow."""
 import os
+from tools.security import get_secret
 
 from n8n_client import N8nClient
 
@@ -13,7 +14,7 @@ WORKFLOW_SPEC = {
 
 def main() -> None:
     base = os.getenv("N8N_URL", "http://localhost:5678")
-    key = os.getenv("N8N_API_KEY", "changeme")
+    key = get_secret("N8N_API_KEY") or "changeme"
     client = N8nClient(base, key)
     result = client.create_workflow(WORKFLOW_SPEC)
     print("create_workflow:", result)

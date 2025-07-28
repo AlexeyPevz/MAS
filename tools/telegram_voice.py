@@ -14,6 +14,7 @@ telegram_voice.py
 """
 
 import os
+from .security import get_secret
 import logging
 from dataclasses import dataclass
 from typing import Optional, Dict, Any, Callable
@@ -54,9 +55,9 @@ def stt(file_path: str, api_key: str | None = None) -> str:
     except ImportError:
         raise RuntimeError("Для работы STT требуется библиотека requests. Установите её: pip install requests")
 
-    yandex_api_key = api_key or os.getenv("YA_SPEECHKIT_API_KEY")
+    yandex_api_key = api_key or get_secret("YA_SPEECHKIT_API_KEY")
     if not yandex_api_key:
-        logging.error("Не указан YA_SPEECHKIT_API_KEY в .env")
+        logging.error("Не указан YA_SPEECHKIT_API_KEY")
         return ""
 
     # Получить IAM‑токен (в production необходимо реализовать refresh)
@@ -92,9 +93,9 @@ def tts(text: str, api_key: str | None = None) -> bytes:
     except ImportError:
         raise RuntimeError("Для работы TTS требуется библиотека requests. Установите её: pip install requests")
 
-    yandex_api_key = api_key or os.getenv("YA_SPEECHKIT_API_KEY")
+    yandex_api_key = api_key or get_secret("YA_SPEECHKIT_API_KEY")
     if not yandex_api_key:
-        logging.error("Не указан YA_SPEECHKIT_API_KEY в .env")
+        logging.error("Не указан YA_SPEECHKIT_API_KEY")
         return b""
 
     iam_token = yandex_api_key
@@ -216,10 +217,10 @@ def run_telegram_bot(
 
 
 if __name__ == "__main__":
-    token = os.getenv("TELEGRAM_TOKEN")
-    ya_key = os.getenv("YA_SPEECHKIT_API_KEY")
+    token = get_secret("TELEGRAM_TOKEN")
+    ya_key = get_secret("YA_SPEECHKIT_API_KEY")
     if not token:
-        raise RuntimeError("Не указан TELEGRAM_TOKEN в переменных окружения")
+        raise RuntimeError("Не указан TELEGRAM_TOKEN")
     if not ya_key:
-        raise RuntimeError("Не указан YA_SPEECHKIT_API_KEY в переменных окружения")
+        raise RuntimeError("Не указан YA_SPEECHKIT_API_KEY")
     run_telegram_bot(token, SpeechKitClient(ya_key))

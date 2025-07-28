@@ -12,13 +12,15 @@ LLM (например, Kimi K2) для обработки запросов. В �
 from typing import Any, Dict
 import os
 
+from .security import get_secret
+
 try:
     import requests  # type: ignore
 except ImportError:  # pragma: no cover - optional dependency
     requests = None  # type: ignore
 
 BASE_URL = os.getenv("MULTITOOL_URL", "http://localhost:8080")
-API_KEY = os.getenv("MULTITOOL_API_KEY", "")
+API_KEY = get_secret("MULTITOOL_API_KEY") or ""
 
 
 def _headers() -> Dict[str, str]:

@@ -32,7 +32,9 @@ Root-MAS provides a lightweight skeleton for building a multi‑agent system wit
    pip install -r requirements.txt
    ```
 
-2. **Configure environment variables.**  Copy `.env.example` to `.env` and fill in the API keys (`OPENROUTER_API_KEY`, `YANDEX_API_KEY`, `YANDEX_FOLDER_ID`, `N8N_API_TOKEN`, `TELEGRAM_BOT_TOKEN`).
+2. **Configure secrets.**  Store API keys in HashiCorp Vault and set `VAULT_ADDR`,
+   `VAULT_TOKEN` and optionally `VAULT_PATH` in your environment.  You may copy
+   `.env.example` to `.env` for non‑secret settings like service URLs.
 
 3. **Start supporting services.**  Launch the containers with Docker Compose.  For an internal instance run:
 
