@@ -6,7 +6,7 @@
 
 | № | Цели спринта | Краткое описание | Статус |
 |---|---------------|------------------|---------|
-| 0 | Repo‑старт, `run.py`, каскад моделей | Создать структуру репозитория, настроить LLM‑каскад, написать простой `run.py` с эхо‑тестом. | готово |
+| 0 | Repo‑старт, `production_launcher.py`, каскад моделей | Создать структуру репозитория, настроить LLM‑каскад, написать `production_launcher.py` с полной системой. | готово |
 | 1 | Communicator (Telegram + STT/TTS), callback `outgoing_to_telegram` | Реализовать телеграм‑бота, интегрировать STT/TTS через Яндекс SpeechKit, настроить отправку ответов пользователю. | готово |
 | 2 | Coordination‑cron, Researcher / Fact‑Checker, RESEARCH‑flow | Настроить планировщик заданий (cron), реализовать агентов Researcher и Fact‑Checker, создать поток Research → Validate → Memory. | готово |
 | 3 | Prompt‑Builder + git, PermissionError guard | Создать агента Prompt‑Builder, реализовать создание и аудит промптов, защитить глобальный промпт от изменений. | готово |

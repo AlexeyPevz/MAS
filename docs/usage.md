@@ -11,7 +11,7 @@ pip install -r requirements.txt
 Запустите простой тест, чтобы убедиться, что конфигурация моделей корректна:
 
 ```bash
-python run.py --goal "echo"
+python production_launcher.py
 ```
 
 Скрипт выведет выбранную модель из файла `config/llm_tiers.yaml` и список активных агентов.

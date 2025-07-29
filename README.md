@@ -28,7 +28,7 @@ The high-level message flow is visualised below (see [`docs/architecture.mmd`](d
 ├── memory/                 # storage backends (Redis, Postgres, Chroma)
 ├── prompts/                # system prompts for all agents
 ├── tools/                  # helper modules for integrations
-├── run.py                  # entry point that launches the root group chat
+├── production_launcher.py  # entry point for production MAS system
 ├── compose.yml             # compose template for a single client MAS
 └── requirements.txt        # Python dependencies
 ```
@@ -100,7 +100,7 @@ make clean     # Clean up
 5. **Run an echo test.**
 
    ```bash
-   python run.py --goal "echo"
+   python production_launcher.py
    ```
 
    The script reads `config/llm_tiers.yaml` and prints which model would be chosen from the cheapest tier.

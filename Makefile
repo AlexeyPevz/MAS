@@ -64,7 +64,7 @@ quick-demo:
 # === Legacy Commands ===
 run:
 	@echo "⚠️ Используйте 'make start' вместо 'make run'"
-	python3 run.py --goal "echo"
+	python3 production_launcher.py
 
 # === Help ===
 help:
