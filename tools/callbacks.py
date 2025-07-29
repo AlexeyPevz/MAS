@@ -87,7 +87,7 @@ def route_missing_tool(tool_name: str) -> None:
     logging.info(f"[callback] route_missing_tool called for tool: {tool_name}")
     try:
         from .prompt_builder import create_agent_prompt
-        from autogen import agentchat
+        from pyautogen import agentchat
 
         prompt_text = f"Placeholder prompt for tool {tool_name}"
         create_agent_prompt(tool_name, prompt_text)

@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Optional
 import logging
 
-from autogen.agentchat import ConversableAgent
+from pyautogen.agentchat import ConversableAgent
 
 from .telegram_voice import SpeechKitClient, run_telegram_bot
 
