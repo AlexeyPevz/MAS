@@ -9,8 +9,8 @@ import asyncio
 import logging
 from pathlib import Path
 
-# Настройка путей
-sys.path.insert(0, str(Path(__file__).parent))
+# Настройка путей - добавляем корень проекта
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Настройка логирования для тестов
 logging.basicConfig(

@@ -131,7 +131,7 @@ def outgoing_to_telegram(message: str) -> None:
         message: текст ответа
 
     Note:
-        В рабочей системе здесь используется Telegram‑бот (см. telegram_voice.py),
+        В рабочей системе здесь используется Telegram‑бот (см. modern_telegram_bot.py),
         который пересылает ответы пользователю. В заглушке сообщение печатается в консоль.
     """
     logging.info(f"[callback] outgoing_to_telegram: {message}")
