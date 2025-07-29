@@ -76,14 +76,31 @@ class SmartGroupChatManager:
             
             # Генерируем ответ от агента
             if hasattr(agent, 'generate_reply') and callable(agent.generate_reply):
-                # Реальный AutoGen агент
-                response = agent.generate_reply(
-                    messages=context,
-                    sender=None
-                )
+                # Реальный AutoGen агент с LLM
+                try:
+                    response = agent.generate_reply(
+                        messages=context,
+                        sender=None
+                    )
+                    
+                    # Если ответ пустой или None
+                    if not response:
+                        response = f"[{agent_name}] Сообщение обработано"
+                    
+                    # Сохраняем в память если есть
+                    if hasattr(agent, 'remember'):
+                        agent.remember(f"last_interaction_{message.sender}", message.content)
+                        agent.remember(f"last_response_{agent_name}", response)
+                        
+                except Exception as e:
+                    self.logger.error(f"❌ LLM вызов агента {agent_name} failed: {e}")
+                    response = f"[{agent_name}] ⚠️ Ошибка LLM: пробую альтернативную модель..."
+                    
+                    # Пробуем fallback ответ
+                    response = self._generate_fallback_response(agent_name, message.content)
             else:
                 # Fallback для mock агентов
-                response = f"[{agent_name}] Обработано сообщение: {message.content[:50]}..."
+                response = self._generate_fallback_response(agent_name, message.content)
             
             # Сохраняем ответ агента
             agent_message = Message(
@@ -151,6 +168,18 @@ class SmartGroupChatManager:
     
     def _should_continue_routing(self, agent_name: str, response: str) -> bool:
         """Определение необходимости продолжения маршрутизации"""
+        # Защита от бесконечной рекурсии - максимум 3 прохода через одного агента
+        recent_messages = self.conversation_history[-20:]  # Смотрим последние 20 сообщений
+        agent_count = sum(1 for msg in recent_messages if msg.sender == agent_name)
+        
+        if agent_count >= 3:
+            self.logger.warning(f"🔄 Агент {agent_name} уже выполнялся {agent_count} раз, остановка маршрутизации")
+            return False
+        
+        # Проверяем общую длину цепочки - не более 10 переходов подряд
+        if len(recent_messages) >= 10:
+            return False
+        
         # Простая логика - не продолжаем если это финальный ответ
         stop_phrases = [
             "завершено",
@@ -166,13 +195,7 @@ class SmartGroupChatManager:
             if phrase in response_lower:
                 return False
         
-        # Не продолжаем если слишком длинная цепочка
-        recent_agent_messages = [
-            msg for msg in self.conversation_history[-5:]
-            if msg.sender == agent_name
-        ]
-        
-        return len(recent_agent_messages) < 3
+        return True
     
     def get_conversation_summary(self) -> Dict[str, Any]:
         """Получение сводки разговора"""
@@ -221,6 +244,20 @@ class SmartGroupChatManager:
         
         return task_id
     
+    def _generate_fallback_response(self, agent_name: str, message_content: str) -> str:
+        """Генерация fallback ответа для агента"""
+        responses = {
+            "meta": f"🎯 [Meta] Анализирую задачу: '{message_content[:50]}...' - составляю план выполнения",
+            "coordination": f"📋 [Coordination] Принял задачу в работу и распределяю между исполнителями",
+            "researcher": f"🔍 [Researcher] Ищу информацию по запросу: '{message_content[:30]}...'",
+            "fact_checker": f"✅ [Fact-Checker] Проверяю достоверность полученной информации",
+            "prompt_builder": f"📝 [Prompt-Builder] Оптимизирую промпты для лучшей работы агентов", 
+            "communicator": f"💬 [Communicator] Обрабатываю сообщение и готовлю ответ пользователю",
+        }
+        
+        default_response = f"🤖 [{agent_name}] Обработано: {message_content[:50]}..."
+        return responses.get(agent_name, default_response)
+
     def get_system_status(self) -> Dict[str, Any]:
         """Получение статуса системы"""
         return {

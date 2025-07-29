@@ -115,6 +115,15 @@ install_python_deps() {
         prometheus_client \
         pytest
     
+    # Исправляем AutoGen зависимости
+    log_info "Настройка AutoGen..."
+    pip3 uninstall --break-system-packages -y autogen autogen-agentchat || true
+    pip3 install --break-system-packages pyautogen>=0.2.32
+    
+    # Устанавливаем современный Telegram bot
+    log_info "Установка Telegram bot..."
+    pip3 install --break-system-packages "python-telegram-bot>=20.0,<21.0"
+    
     log_success "Python зависимости установлены"
 }
 

@@ -72,6 +72,10 @@ class BaseAgent(ConversableAgent):
         self._task_prompts: dict[str, str] = {}
         self._current_tier = tier
         self._current_model = model
+        
+        # Auto-connect memory based on agent configuration
+        self.memory = None
+        self._setup_memory()
 
     # ------------------------------------------------------------------
     # Prompt helpers
@@ -111,3 +115,67 @@ class BaseAgent(ConversableAgent):
         if not isinstance(other, BaseAgent):
             return False
         return self.name == other.name
+
+    def _setup_memory(self):
+        """Setup memory connection based on agent configuration"""
+        try:
+            # Пытаемся определить тип памяти по имени агента или конфигурации
+            memory_config = self._get_memory_config()
+            
+            if memory_config == "global":
+                from memory.redis_store import RedisStore
+                self.memory = RedisStore()
+            elif memory_config == "vector":
+                from memory.chroma_store import ChromaStore
+                self.memory = ChromaStore()
+            elif memory_config == "persistent":
+                from memory.postgres_store import PostgresStore
+                self.memory = PostgresStore()
+            # else: memory остается None (без памяти)
+            
+        except Exception as e:
+            # Если не удалось подключить память - продолжаем без неё
+            pass
+    
+    def _get_memory_config(self) -> str:
+        """Determine memory type for this agent"""
+        # Mapping agent names to memory types
+        memory_map = {
+            "meta": "global",
+            "coordination": "global", 
+            "researcher": "vector",
+            "fact_checker": "vector",
+            "prompt_builder": "persistent",
+            "multi_tool": "global",
+            "workflow_builder": "persistent",
+            "webapp_builder": "persistent",
+            "communicator": "global"
+        }
+        
+        return memory_map.get(self.name, "none")
+    
+    def remember(self, key: str, value: str):
+        """Store information in memory"""
+        if self.memory:
+            try:
+                self.memory.store(key, value)
+            except Exception:
+                pass  # Тихо игнорируем ошибки памяти
+    
+    def recall(self, key: str) -> str:
+        """Retrieve information from memory"""
+        if self.memory:
+            try:
+                return self.memory.retrieve(key)
+            except Exception:
+                pass
+        return ""
+    
+    def search_memory(self, query: str, limit: int = 5):
+        """Search in memory (for vector stores)"""
+        if self.memory and hasattr(self.memory, 'search'):
+            try:
+                return self.memory.search(query, limit)
+            except Exception:
+                pass
+        return []

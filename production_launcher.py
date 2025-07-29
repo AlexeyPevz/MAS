@@ -169,8 +169,34 @@ async def start_telegram_bot(manager):
         return
     
     try:
-        # Здесь будет интеграция с Telegram ботом
-        logger.info("🤖 Telegram бот будет запущен в следующей версии")
+        from tools.modern_telegram_bot import ModernTelegramBot
+        
+        # Создаем callback для интеграции с MAS
+        async def mas_callback(message: str) -> str:
+            try:
+                response = await manager.process_user_message(message)
+                return response or "✅ Сообщение обработано"
+            except Exception as e:
+                logger.error(f"❌ Ошибка MAS обработки: {e}")
+                return f"😔 Произошла ошибка: {str(e)[:200]}..."
+        
+        # Создаем и запускаем бота
+        bot = ModernTelegramBot(
+            token=os.getenv('TELEGRAM_BOT_TOKEN'),
+            mas_callback=mas_callback,
+            enable_voice=False
+        )
+        
+        # Запускаем в фоновой задаче
+        bot_task = asyncio.create_task(bot.run())
+        logger.info("🤖 Telegram бот запущен и подключен к MAS системе!")
+        
+        # Сохраняем ссылку на задачу
+        manager._telegram_bot = bot
+        manager._telegram_task = bot_task
+        
+    except ImportError:
+        logger.warning("⚠️ python-telegram-bot не установлен, бот недоступен")
     except Exception as e:
         logger.error(f"❌ Ошибка запуска Telegram бота: {e}")
 

@@ -23,7 +23,7 @@ from typing import Optional, Dict, Any, Callable
 # Попробуем импортировать telegram, если установлен
 try:
     from telegram import Update, Bot
-    from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+    from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 except ImportError:
     # Библиотеки могут отсутствовать в окружении, оставляем заглушки
     Bot = None  # type: ignore
@@ -137,7 +137,7 @@ class TelegramVoiceBot:
             )
         self.token = token
         self.speechkit = speechkit
-        self.bot = Bot(token=token)
+        self.application = Application.builder().token(token).build()
         self._use_webhook = use_webhook
         self._webhook_url = webhook_url or os.getenv("TG_WEBHOOK_URL")
         self._listen_port = listen_port
