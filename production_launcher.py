@@ -90,6 +90,21 @@ def validate_environment() -> bool:
     models = get_available_models()
     logger.info(f"🤖 Доступно моделей: {len(models)}")
     
+    # Проверяем интеграции
+    logger.info("🔗 Статус интеграций:")
+    
+    # GPT-Pilot
+    gpt_pilot_url = os.getenv('GPT_PILOT_URL', 'http://localhost:8000')
+    gpt_pilot_key = os.getenv('GPT_PILOT_API_KEY')
+    status_pilot = "🔑" if gpt_pilot_key else "🔓"
+    logger.info(f"  🚀 GPT-Pilot: {gpt_pilot_url} {status_pilot}")
+    
+    # AutoGen Studio  
+    studio_url = os.getenv('AUTOGEN_STUDIO_URL', 'http://localhost:8081')
+    studio_key = os.getenv('AUTOGEN_STUDIO_API_KEY')
+    status_studio = "🔑" if studio_key else "🔓"
+    logger.info(f"  🎬 AutoGen Studio: {studio_url} {status_studio}")
+    
     return True
 
 

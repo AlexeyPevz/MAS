@@ -399,6 +399,18 @@ main() {
         "cleanup")
             cleanup
             ;;
+        "install-integrations")
+            log_info "Установка интеграций (GPT-Pilot + AutoGen Studio)..."
+            docker-compose -f docker-compose.gpt-pilot.yml up -d
+            log_success "Интеграции установлены"
+            log_info "🚀 GPT-Pilot: http://localhost:8000"
+            log_info "🎬 AutoGen Studio: http://localhost:8081"
+            ;;
+        "stop-integrations")
+            log_info "Остановка интеграций..."
+            docker-compose -f docker-compose.gpt-pilot.yml down
+            log_success "Интеграции остановлены"
+            ;;
         "help"|"-h"|"--help")
             show_help
             ;;

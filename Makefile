@@ -45,6 +45,14 @@ deploy:
 	@echo "🚀 Развертывание через Docker..."
 	docker compose -f docker-compose.prod.yml up -d --build
 
+deploy-integrations:
+	@echo "🔗 Установка интеграций..."
+	./deploy.sh install-integrations
+
+stop-integrations:
+	@echo "⏹️ Остановка интеграций..."
+	./deploy.sh stop-integrations
+
 # === Utility Commands ===
 clean:
 	@echo "🧹 Очистка системы..."
