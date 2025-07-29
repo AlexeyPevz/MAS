@@ -46,13 +46,32 @@ PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts" / "agents"
 class BaseAgent(ConversableAgent):
     """Base class for root MAS agents."""
 
-    def __init__(self, name: str, model: str, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, name: str, model: str = "gpt-4o-mini", tier: str = "cheap", *args: Any, **kwargs: Any) -> None:
+        # Загружаем системный промпт
         prompt_path = PROMPTS_DIR / name / "system.md"
         system_prompt = read_prompt(prompt_path)
-        super().__init__(name=name, llm_config={"model": model}, system_message=system_prompt, *args, **kwargs)
+        
+        # Создаем LLM конфигурацию
+        from tools.llm_config import get_model_by_tier, create_llm_config
+        
+        # Используем tier для автоматического выбора модели или конкретную модель
+        if tier and tier in ["cheap", "standard", "premium"]:
+            llm_config = get_model_by_tier(tier, 0)
+        else:
+            llm_config = create_llm_config(model, "openrouter")
+        
+        super().__init__(
+            name=name, 
+            llm_config=llm_config, 
+            system_message=system_prompt, 
+            *args, 
+            **kwargs
+        )
 
         # Cache for task-specific prompts: slug -> text
         self._task_prompts: dict[str, str] = {}
+        self._current_tier = tier
+        self._current_model = model
 
     # ------------------------------------------------------------------
     # Prompt helpers

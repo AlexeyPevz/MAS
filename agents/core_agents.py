@@ -26,8 +26,8 @@ from .base import BaseAgent
 
 @dataclass
 class MetaAgent(BaseAgent):
-    def __init__(self, model: str):
-        super().__init__("meta", model)
+    def __init__(self, model: str, tier: str = "premium"):
+        super().__init__("meta", model, tier)
 
     def create_plan(self, goal: str) -> list[str]:
         """Break down a user goal into simple tasks."""
@@ -41,8 +41,8 @@ class MetaAgent(BaseAgent):
 
 @dataclass
 class CoordinationAgent(BaseAgent):
-    def __init__(self, model: str):
-        super().__init__("coordination", model)
+    def __init__(self, model: str, tier: str = "cheap"):
+        super().__init__("coordination", model, tier)
         self.tasks: Dict[str, str] = {}
 
     def add_task(self, task: str, status: str = "pending") -> None:
@@ -56,8 +56,8 @@ class CoordinationAgent(BaseAgent):
 
 @dataclass
 class PromptBuilderAgent(BaseAgent):
-    def __init__(self, model: str):
-        super().__init__("prompt_builder", model)
+    def __init__(self, model: str, tier: str = "standard"):
+        super().__init__("prompt_builder", model, tier)
 
     def create_prompt(self, agent_name: str, content: str) -> None:
         from tools.prompt_builder import create_agent_prompt
@@ -84,8 +84,8 @@ class PromptBuilderAgent(BaseAgent):
 
 @dataclass
 class ModelSelectorAgent(BaseAgent):
-    def __init__(self, model: str):
-        super().__init__("model_selector", model)
+    def __init__(self, model: str, tier: str = "cheap"):
+        super().__init__("model_selector", model, tier)
 
     def pick(self, tier: str, attempt: int = 0) -> Dict[str, str]:
         from tools.llm_selector import pick_config
@@ -96,8 +96,8 @@ class ModelSelectorAgent(BaseAgent):
 
 @dataclass
 class AgentBuilderAgent(BaseAgent):
-    def __init__(self, model: str):
-        super().__init__("agent_builder", model)
+    def __init__(self, model: str, tier: str = "cheap"):
+        super().__init__("agent_builder", model, tier)
 
     def build(self, spec: Dict[str, Any]) -> None:
         from autogen import agentchat
@@ -107,8 +107,8 @@ class AgentBuilderAgent(BaseAgent):
 
 @dataclass
 class InstanceFactoryAgent(BaseAgent):
-    def __init__(self, model: str):
-        super().__init__("instance_factory", model)
+    def __init__(self, model: str, tier: str = "cheap"):
+        super().__init__("instance_factory", model, tier)
 
     def deploy(self, directory: str, env: Dict[str, str]) -> None:
         from tools.instance_factory import deploy_instance
@@ -118,8 +118,8 @@ class InstanceFactoryAgent(BaseAgent):
 
 @dataclass
 class ResearcherAgent(BaseAgent):
-    def __init__(self, model: str):
-        super().__init__("researcher", model)
+    def __init__(self, model: str, tier: str = "standard"):
+        super().__init__("researcher", model, tier)
 
     def web_search(self, query: str, max_results: int = 5) -> Any:
         from tools.researcher import web_search
@@ -129,8 +129,8 @@ class ResearcherAgent(BaseAgent):
 
 @dataclass
 class FactCheckerAgent(BaseAgent):
-    def __init__(self, model: str):
-        super().__init__("fact_checker", model)
+    def __init__(self, model: str, tier: str = "standard"):
+        super().__init__("fact_checker", model, tier)
 
     def validate(self, facts: Any) -> bool:
         # In a full implementation this would cross-check sources.
@@ -139,8 +139,8 @@ class FactCheckerAgent(BaseAgent):
 
 @dataclass
 class MultiToolAgent(BaseAgent):
-    def __init__(self, model: str):
-        super().__init__("multitool", model)
+    def __init__(self, model: str, tier: str = "cheap"):
+        super().__init__("multitool", model, tier)
 
     def call_api(self, api_name: str, params: Dict[str, Any]) -> Any:
         from tools.multitool import call
@@ -150,8 +150,8 @@ class MultiToolAgent(BaseAgent):
 
 @dataclass
 class WfBuilderAgent(BaseAgent):
-    def __init__(self, model: str):
-        super().__init__("wf_builder", model)
+    def __init__(self, model: str, tier: str = "standard"):
+        super().__init__("wf_builder", model, tier)
 
     def create_workflow(self, spec: str, url: str, api_key: str) -> Any:
         from tools.wf_builder import create_workflow
@@ -161,8 +161,8 @@ class WfBuilderAgent(BaseAgent):
 
 @dataclass
 class WebAppBuilderAgent(BaseAgent):
-    def __init__(self, model: str):
-        super().__init__("webapp_builder", model)
+    def __init__(self, model: str, tier: str = "standard"):
+        super().__init__("webapp_builder", model, tier)
 
     def create_app(self, spec: Dict[str, Any]) -> str:
         from tools.webapp_builder import create_app
@@ -177,8 +177,8 @@ class WebAppBuilderAgent(BaseAgent):
 
 @dataclass
 class CommunicatorAgent(BaseAgent):
-    def __init__(self, model: str):
-        super().__init__("communicator", model)
+    def __init__(self, model: str, tier: str = "cheap"):
+        super().__init__("communicator", model, tier)
 
     def forward(self, text: str) -> Dict[str, str]:
         """Prepare a message to be routed into the group chat."""
@@ -207,5 +207,8 @@ def create_agents(config: AgentsConfig) -> Dict[str, ConversableAgent]:
         cls = mapping.get(name)
         if cls is None:
             continue
-        agents[name] = cls(definition.model)
+        
+        # Используем tier из конфигурации агента
+        tier = getattr(definition, 'default_tier', 'cheap')
+        agents[name] = cls(definition.model, tier=tier)
     return agents
