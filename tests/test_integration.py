@@ -1,6 +1,6 @@
 import tools.callback_matrix as cbm
 from agents.core_agents import create_agents
-from tools.groupchat_manager import RootGroupChatManager
+from tools.smart_groupchat import SmartGroupChatManager
 from config.config_loader import AgentsConfig
 
 
@@ -24,7 +24,7 @@ def test_goal_groupchat_callback(monkeypatch):
         "meta": [],  # meta can escalate directly
     }
 
-    manager = RootGroupChatManager(agents, routing)
+    manager = SmartGroupChatManager(agents, routing)
 
     # Ask Meta to escalate a question -> should hit callback matrix -> sender
     evt = agents["meta"].escalate("test ping")
