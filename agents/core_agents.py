@@ -9,7 +9,7 @@ from config_loader import AgentsConfig, AgentDefinition
 from .base import BaseAgent
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class MetaAgent(BaseAgent):
     def __init__(self, model: str):
         super().__init__("meta", model)
@@ -24,7 +24,7 @@ class MetaAgent(BaseAgent):
         return {"event": "OUTGOING_TO_TELEGRAM", "args": [message]}
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class CoordinationAgent(BaseAgent):
     def __init__(self, model: str):
         super().__init__("coordination", model)
@@ -39,7 +39,7 @@ class CoordinationAgent(BaseAgent):
         return dict(self.tasks)
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class PromptBuilderAgent(BaseAgent):
     def __init__(self, model: str):
         super().__init__("prompt_builder", model)
@@ -67,7 +67,7 @@ class PromptBuilderAgent(BaseAgent):
         return audit_prompt(agent_name)
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class ModelSelectorAgent(BaseAgent):
     def __init__(self, model: str):
         super().__init__("model_selector", model)
@@ -79,7 +79,7 @@ class ModelSelectorAgent(BaseAgent):
         return model_cfg
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class AgentBuilderAgent(BaseAgent):
     def __init__(self, model: str):
         super().__init__("agent_builder", model)
@@ -90,7 +90,7 @@ class AgentBuilderAgent(BaseAgent):
         agentchat.build_from_spec(spec)
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class InstanceFactoryAgent(BaseAgent):
     def __init__(self, model: str):
         super().__init__("instance_factory", model)
@@ -101,7 +101,7 @@ class InstanceFactoryAgent(BaseAgent):
         deploy_instance(directory, env, "auto")
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class ResearcherAgent(BaseAgent):
     def __init__(self, model: str):
         super().__init__("researcher", model)
@@ -112,7 +112,7 @@ class ResearcherAgent(BaseAgent):
         return web_search(query, max_results)
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class FactCheckerAgent(BaseAgent):
     def __init__(self, model: str):
         super().__init__("fact_checker", model)
@@ -122,7 +122,7 @@ class FactCheckerAgent(BaseAgent):
         return bool(facts)
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class MultiToolAgent(BaseAgent):
     def __init__(self, model: str):
         super().__init__("multitool", model)
@@ -133,7 +133,7 @@ class MultiToolAgent(BaseAgent):
         return call(api_name, params)
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class WfBuilderAgent(BaseAgent):
     def __init__(self, model: str):
         super().__init__("wf_builder", model)
@@ -144,7 +144,7 @@ class WfBuilderAgent(BaseAgent):
         return create_workflow(spec, url, api_key)
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class WebAppBuilderAgent(BaseAgent):
     def __init__(self, model: str):
         super().__init__("webapp_builder", model)
@@ -160,7 +160,7 @@ class WebAppBuilderAgent(BaseAgent):
         return check_status(job_id)
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class CommunicatorAgent(BaseAgent):
     def __init__(self, model: str):
         super().__init__("communicator", model)

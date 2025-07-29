@@ -9,27 +9,19 @@ GroupChatManager может использовать этот словарь, ч
 """
 
 from typing import Callable, Dict
-from .callbacks import (
-    route_instance_creation,
-    route_workflow,
-    route_missing_tool,
-    retry_with_higher_tier_callback,
-    budget_guard_callback,
-    outgoing_to_telegram,
-    research_validation_cycle,
-)
+from . import callbacks
 
 
 # Сопоставление имени события и соответствующей callback‑функции
-CALLBACK_MATRIX: Dict[str, Callable[..., None]] = {
-    "CREATE_INTERNAL": route_instance_creation,
-    "CREATE_CLIENT": route_instance_creation,
-    "CREATE_WORKFLOW": route_workflow,
-    "MISSING_TOOL": route_missing_tool,
-    "RETRY_WITH_HIGHER_TIER": retry_with_higher_tier_callback,
-    "BUDGET_GUARD": budget_guard_callback,
-    "OUTGOING_TO_TELEGRAM": outgoing_to_telegram,
-    "RESEARCH_TASK": research_validation_cycle,
+CALLBACK_MATRIX: Dict[str, str] = {
+    "CREATE_INTERNAL": "route_instance_creation",
+    "CREATE_CLIENT": "route_instance_creation",
+    "CREATE_WORKFLOW": "route_workflow",
+    "MISSING_TOOL": "route_missing_tool",
+    "RETRY_WITH_HIGHER_TIER": "retry_with_higher_tier_callback",
+    "BUDGET_GUARD": "budget_guard_callback",
+    "OUTGOING_TO_TELEGRAM": "outgoing_to_telegram",
+    "RESEARCH_TASK": "research_validation_cycle",
 }
 
 
@@ -41,7 +33,8 @@ def handle_event(event_name: str, *args, **kwargs) -> None:
         *args: позиционные аргументы для callback
         **kwargs: именованные аргументы
     """
-    callback = CALLBACK_MATRIX.get(event_name)
-    if callback is None:
+    func_name = CALLBACK_MATRIX.get(event_name)
+    if func_name is None:
         raise ValueError(f"Неизвестный callback для события: {event_name}")
+    callback = getattr(callbacks, func_name)
     callback(*args, **kwargs)

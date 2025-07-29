@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Any
 
 # Прямой импорт AutoGen – в продакшне библиотека присутствует, иначе CI упадёт.
 from autogen.agentchat import GroupChat, GroupChatManager, ConversableAgent
@@ -27,7 +27,12 @@ class RootGroupChatManager(GroupChatManager):
             system_prompt = system_prompt_path.read_text(encoding="utf-8")
         except Exception:
             system_prompt = ""
-        super().__init__(groupchat=chat, llm_config={"model": "gpt-4o"}, system_message=system_prompt)
+        try:
+            import openai  # noqa: F401
+            llm_cfg: Any = {"model": "gpt-4o"}
+        except ImportError:  # pragma: no cover - optional dependency
+            llm_cfg = False
+        super().__init__(groupchat=chat, llm_config=llm_cfg, system_message=system_prompt)
         self._agents = agents
         self.groupchat.messages = []
 

@@ -52,14 +52,19 @@ class N8NClient:
         backoff = BACKOFF_BASE
         for attempt in range(1, MAX_RETRIES + 1):
             try:
-                resp = requests.request(method, url, timeout=TIMEOUT, **kwargs)  # type: ignore[arg-type]
+                if method.upper() == "POST":
+                    resp = requests.post(url, timeout=TIMEOUT, **kwargs)  # type: ignore[arg-type]
+                else:
+                    resp = requests.request(method, url, timeout=TIMEOUT, **kwargs)  # type: ignore[arg-type]
                 if resp.status_code >= 500:
                     raise RuntimeError(f"{resp.status_code} server error")
                 return resp
             except Exception as exc:  # pragma: no cover - network errors
                 if attempt == MAX_RETRIES:
                     raise
-                logging.warning("[n8n_client] %s %s failed (%s), retry %d/%d", method, url, exc, attempt, MAX_RETRIES)
+                logging.warning(
+                    "[n8n_client] %s %s failed (%s), retry %d/%d", method, url, exc, attempt, MAX_RETRIES
+                )
                 time.sleep(backoff)
                 backoff *= 2
 

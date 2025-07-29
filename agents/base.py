@@ -7,7 +7,7 @@ from typing import Any
 # что позволит CI выявить проблему на этапе установки зависимостей.
 from autogen.agentchat import ConversableAgent
 
-from prompt_io import read_prompt
+from tools.prompt_io import read_prompt
 
 # New: helper to get task-specific prompt path
 
@@ -36,7 +36,14 @@ class BaseAgent(ConversableAgent):
     def __init__(self, name: str, model: str, *args: Any, **kwargs: Any) -> None:
         prompt_path = PROMPTS_DIR / name / "system.md"
         system_prompt = read_prompt(prompt_path)
-        super().__init__(name=name, llm_config={"model": model}, system_message=system_prompt, *args, **kwargs)
+
+        try:
+            import openai  # noqa: F401
+            llm_cfg: Any = {"model": model}
+        except ImportError:  # pragma: no cover - optional dependency
+            llm_cfg = False
+
+        super().__init__(name=name, llm_config=llm_cfg, system_message=system_prompt, *args, **kwargs)
 
         # Cache for task-specific prompts: slug -> text
         self._task_prompts: dict[str, str] = {}

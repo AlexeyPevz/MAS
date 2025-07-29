@@ -1,5 +1,5 @@
 from tools.budget_manager import BudgetManager
-from tools.llm_selector import pick_config
+from tools.llm_selector import pick_config, retry_with_higher_tier
 from tools.security import get_secret
 
 
