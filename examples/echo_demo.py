@@ -1,16 +1,15 @@
 """Simple echo demonstration using the MAS configuration."""
 from pathlib import Path
-
 import sys
-from pathlib import Path
+
+# Add parent directory to path
 sys.path.append(str(Path(__file__).parent.parent))
-from run import load_llm_tiers, pick_model
+from tools.llm_config import load_llm_tiers
 
 
 def main() -> None:
-    tiers = load_llm_tiers(Path(__file__).resolve().parent.parent / "config" / "llm_tiers.yaml")
-    model = pick_model(tiers)
-    print(f"Selected model: {model}")
+    tiers = load_llm_tiers()
+    print(f"Loaded LLM tiers: {list(tiers.keys()) if tiers else 'None'}")
     text = input("Say something: ")
     print("Assistant:", text)
 
