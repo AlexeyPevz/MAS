@@ -69,3 +69,13 @@ class BaseAgent(ConversableAgent):
         prompt = self.load_task_prompt(task)
         # ConversableAgent exposes attribute ``system_message``; we update it
         self.system_message = prompt
+
+    def __hash__(self) -> int:
+        """Make BaseAgent hashable for GroupChat compatibility."""
+        return hash(self.name)
+
+    def __eq__(self, other: object) -> bool:
+        """Equality comparison for BaseAgent."""
+        if not isinstance(other, BaseAgent):
+            return False
+        return self.name == other.name
