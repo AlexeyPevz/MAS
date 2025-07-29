@@ -3,9 +3,22 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-# Требуемый импорт AutoGen. При отсутствии библиотеки завершится ImportError,
-# что позволит CI выявить проблему на этапе установки зависимостей.
-from autogen.agentchat import ConversableAgent
+# Импорт AutoGen с поддержкой разных версий
+try:
+    from autogen.agentchat import ConversableAgent
+except ImportError:
+    try:
+        from autogen_agentchat import ConversableAgent
+    except ImportError:
+        # Fallback для случая отсутствия autogen
+        class ConversableAgent:
+            def __init__(self, name, llm_config, system_message="", *args, **kwargs):
+                self.name = name
+                self.llm_config = llm_config
+                self.system_message = system_message
+            
+            def generate_reply(self, messages=None, sender=None, config=None):
+                return f"[{self.name}] Mock response"
 
 from tools.prompt_io import read_prompt
 

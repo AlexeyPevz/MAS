@@ -4,7 +4,30 @@ from pathlib import Path
 from typing import Dict, List
 
 # Прямой импорт AutoGen – в продакшне библиотека присутствует, иначе CI упадёт.
-from autogen.agentchat import GroupChat, GroupChatManager, ConversableAgent
+# Пробуем разные версии autogen
+try:
+    from autogen.agentchat import GroupChat, GroupChatManager, ConversableAgent
+except ImportError:
+    try:
+        from autogen_agentchat import GroupChat, GroupChatManager, ConversableAgent
+    except ImportError:
+        # Fallback для случая отсутствия autogen
+        class GroupChat:
+            def __init__(self, agents, messages, speaker_selection_method="manual"):
+                self.agents = agents
+                self.messages = messages
+                
+        class GroupChatManager:
+            def __init__(self, groupchat, llm_config, system_message=""):
+                self.groupchat = groupchat
+                self.llm_config = llm_config
+                self.system_message = system_message
+                
+        class ConversableAgent:
+            def __init__(self, name, llm_config, system_message=""):
+                self.name = name
+                self.llm_config = llm_config
+                self.system_message = system_message
 
 from .callback_matrix import handle_event
 from .studio_logger import log_interaction

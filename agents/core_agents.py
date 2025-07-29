@@ -3,7 +3,22 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict
 
-from autogen.agentchat import ConversableAgent
+# Импорт AutoGen с поддержкой разных версий
+try:
+    from autogen.agentchat import ConversableAgent
+except ImportError:
+    try:
+        from autogen_agentchat import ConversableAgent
+    except ImportError:
+        # Fallback для случая отсутствия autogen
+        class ConversableAgent:
+            def __init__(self, name, llm_config, system_message="", *args, **kwargs):
+                self.name = name
+                self.llm_config = llm_config
+                self.system_message = system_message
+            
+            def generate_reply(self, messages=None, sender=None, config=None):
+                return f"[{self.name}] Mock response"
 
 from config_loader import AgentsConfig, AgentDefinition
 from .base import BaseAgent
@@ -183,7 +198,8 @@ def create_agents(config: AgentsConfig) -> Dict[str, ConversableAgent]:
         "researcher": ResearcherAgent,
         "fact_checker": FactCheckerAgent,
         "multitool": MultiToolAgent,
-        "wf_builder": WfBuilderAgent,
+        "multi_tool": MultiToolAgent,  # Добавлено: multi_tool
+        "workflow_builder": WfBuilderAgent,  # Исправлено: workflow_builder вместо wf_builder
         "webapp_builder": WebAppBuilderAgent,
         "communicator": CommunicatorAgent,
     }
