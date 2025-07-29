@@ -2,7 +2,7 @@ import pytest
 from pathlib import Path
 
 import run
-from config_loader import AgentsConfig, AgentDefinition
+from config.config_loader import AgentsConfig, AgentDefinition
 from tools.callback_matrix import handle_event
 
 

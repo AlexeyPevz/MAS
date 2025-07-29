@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  # GPT-Pilot service
+  gpt-pilot:
+    image: pythagora/gpt-pilot:latest
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DATABASE_URL=postgresql://gpt_pilot:gpt_pilot@postgres-pilot:5432/gpt_pilot
+    volumes:
+      - gpt-pilot-data:/app/workspace
+      - gpt-pilot-logs:/app/logs
+    depends_on:
+      - postgres-pilot
+
+  # PostgreSQL for GPT-Pilot
+  postgres-pilot:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: gpt_pilot
+      POSTGRES_PASSWORD: gpt_pilot
+      POSTGRES_DB: gpt_pilot
+    volumes:
+      - postgres-pilot-data:/var/lib/postgresql/data
+
+  # AutoGen Studio
+  autogen-studio:
+    image: microsoft/autogen-studio:latest
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - AUTOGEN_STUDIO_HOST=0.0.0.0
+      - AUTOGEN_STUDIO_PORT=8081
+    volumes:
+      - autogen-studio-data:/app/data
+      - autogen-studio-logs:/app/logs
+
+volumes:
+  gpt-pilot-data:
+  gpt-pilot-logs:
+  postgres-pilot-data:
+  autogen-studio-data:
+  autogen-studio-logs:
+
+networks:
+  default:
+    name: mas-integrations

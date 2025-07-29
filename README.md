@@ -19,7 +19,8 @@ The high-level message flow is visualised below (see [`docs/architecture.mmd`](d
 ├── config/                 # YAML configuration files
 │   ├── agents.yaml         # definitions of root agents and their models
 │   ├── llm_tiers.yaml      # model tiers (cheap/standard/premium)
-│   └── instances.yaml      # registry of deployed MAS instances
+│   ├── instances.yaml      # registry of deployed MAS instances
+│   └── config_loader.py    # utility functions for loading configs
 ├── deploy/                 # docker compose templates
 │   ├── internal/compose.yml  # compose for internal MAS instance
 │   └── client/compose.yml    # compose for client MAS instance
@@ -28,37 +29,48 @@ The high-level message flow is visualised below (see [`docs/architecture.mmd`](d
 ├── memory/                 # storage backends (Redis, Postgres, Chroma)
 ├── prompts/                # system prompts for all agents
 ├── tools/                  # helper modules for integrations
-├── run.py                  # entry point that launches the root group chat
+├── production_launcher.py  # entry point for production MAS system
 ├── compose.yml             # compose template for a single client MAS
 └── requirements.txt        # Python dependencies
 ```
 
-## Quick start (Docker Compose)
+## 🚀 Quick Start
 
-1. **Clone & configure.**
+### One-Command Deployment
 
+1. **Clone & configure:**
    ```bash
    git clone <repo> root-mas && cd root-mas
-   cp .env.example .env       # fill API keys / tokens
+   cp .env.example .env
+   # Edit .env and add your OPENROUTER_API_KEY
    ```
 
-2. **Build & run full stack.**  The production compose file brings up the
-   application together with Postgres, Redis and Prometheus:
-
+2. **Install & start everything:**
    ```bash
-   docker compose -f docker-compose.prod.yml up -d --build
+   make install && make start
    ```
-
-   The MAS starts in echo-mode.  Prometheus metrics are exposed on
-   `localhost:9000/metrics` and scraped by `prom/prometheus` at `localhost:9090`.
-
-3. **Smoke-test the root MAS.**
-
+   
+   Or using the deployment script directly:
    ```bash
-   docker compose exec app python run.py --goal "summarise the README"
+   ./deploy.sh install
+   ./deploy.sh start
    ```
 
-For local development without Docker use the classic five-step guide below.
+3. **That's it!** 🎉 Your MAS system is running with:
+   - All 12 agents initialized
+   - PostgreSQL, Redis, ChromaDB running
+   - Prometheus metrics on port 9000
+   - Interactive interface ready
+
+### Quick Commands
+
+```bash
+make status    # Check system status
+make logs      # View logs
+make restart   # Restart everything
+make stop      # Stop system
+make clean     # Clean up
+```
 
 ## Manual deployment (dev environment)
 
@@ -89,7 +101,7 @@ For local development without Docker use the classic five-step guide below.
 5. **Run an echo test.**
 
    ```bash
-   python run.py --goal "echo"
+   python production_launcher.py
    ```
 
    The script reads `config/llm_tiers.yaml` and prints which model would be chosen from the cheapest tier.

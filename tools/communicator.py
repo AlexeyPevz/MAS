@@ -2,8 +2,8 @@
 
 The Communicator agent is responsible for interfacing with the user via
 Telegram.  It listens for incoming text and voice messages, converts voice
-messages to text using Yandex SpeechKit (via the `SpeechKitClient` defined in
-`tools/telegram_voice.py`) and forwards user input into the MAS.  It also
+messages to text using Yandex SpeechKit (via the `ModernTelegramBot` defined in
+`tools/modern_telegram_bot.py`) and forwards user input into the MAS.  It also
 handles outgoing messages by converting assistant responses into speech and
 sending them back to Telegram.
 
@@ -19,7 +19,7 @@ import logging
 
 from autogen.agentchat import ConversableAgent
 
-from .telegram_voice import SpeechKitClient, run_telegram_bot
+from .modern_telegram_bot import ModernTelegramBot
 
 
 @dataclass

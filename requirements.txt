@@ -1,5 +1,5 @@
 pyyaml
-python-telegram-bot==13.15
+python-telegram-bot>=20.0,<21.0
 requests>=2.31.0,<3.0.0
 redis
 psycopg2-binary
@@ -8,4 +8,4 @@ schedule
 prometheus_client>=0.18.0,<1.0.0
 hvac>=1.2.0,<2.0.0
 gitpython
-autogen
+pyautogen>=0.2.32

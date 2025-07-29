@@ -7,6 +7,7 @@ be uploaded to AutoGen Studio to visualise the dialog graph.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Iterable
 
@@ -14,6 +15,10 @@ try:
     import requests  # type: ignore
 except Exception:  # pragma: no cover - optional dependency
     requests = None  # type: ignore
+
+# AutoGen Studio configuration
+STUDIO_URL = os.getenv("AUTOGEN_STUDIO_URL", "http://localhost:8081")
+STUDIO_API_KEY = os.getenv("AUTOGEN_STUDIO_API_KEY", "")
 
 # Default log file used by the helpers
 LOG_PATH = Path("logs") / "studio.jsonl"
@@ -36,8 +41,8 @@ def export_logs(dest: str | Path) -> Path:
     return dest_path
 
 
-def send_to_studio(url: str, log_file: Path | None = None) -> bool:
-    """Send the Studio log file to the given URL.
+def send_to_studio(url: str = None, log_file: Path | None = None) -> bool:
+    """Send the Studio log file to AutoGen Studio.
 
     Returns ``True`` on success, otherwise ``False``.
     """
@@ -45,16 +50,31 @@ def send_to_studio(url: str, log_file: Path | None = None) -> bool:
     if requests is None:
         raise RuntimeError("requests package is required for sending logs")
 
+    upload_url = url or f"{STUDIO_URL}/api/v1/logs/upload"
     lf = log_file or LOG_PATH
+    
+    headers = {}
+    if STUDIO_API_KEY:
+        headers["Authorization"] = f"Bearer {STUDIO_API_KEY}"
+    
     try:
         with lf.open("rb") as f:
             response = requests.post(
-                url,
-                files={"file": (lf.name, f, "text/plain")},
+                upload_url,
+                files={"file": (lf.name, f, "application/jsonl")},
+                headers=headers,
                 timeout=10,
             )
         response.raise_for_status()
+        print(f"[studio_logger] ✅ Logs sent to AutoGen Studio: {upload_url}")
         return True
     except Exception as exc:  # pragma: no cover - network errors
-        print(f"[studio_logger] failed to send logs: {exc}")
+        print(f"[studio_logger] ❌ Failed to send logs: {exc}")
         return False
+
+
+def auto_upload_to_studio() -> bool:
+    """Automatically upload logs to AutoGen Studio if configured."""
+    if STUDIO_URL and STUDIO_API_KEY and LOG_PATH.exists():
+        return send_to_studio()
+    return False
