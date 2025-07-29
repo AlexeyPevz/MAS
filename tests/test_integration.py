@@ -1,7 +1,7 @@
 import tools.callback_matrix as cbm
 from agents.core_agents import create_agents
 from tools.groupchat_manager import RootGroupChatManager
-from config_loader import AgentsConfig
+from config.config_loader import AgentsConfig
 
 
 def test_goal_groupchat_callback(monkeypatch):

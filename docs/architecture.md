@@ -109,7 +109,7 @@ Redis, PostgreSQL и ChromaDB. Их можно использовать для �
 Модули `tools/n8n_client.py`, `tools/wf_builder.py`, `tools/multitool.py`,
 `tools/gpt_pilot.py`, `tools/webapp_builder.py`, `tools/researcher.py` и
 `tools/fact_checker.py` служат для интеграции с n8n, внешними API,
-GPT‑Pilot и веб‑поиском. Модуль `tools/telegram_voice.py` содержит
+GPT‑Pilot и веб‑поиском. Модуль `tools/modern_telegram_bot.py` содержит
 пример бота для Telegram.
 
 ## Спринты

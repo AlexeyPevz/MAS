@@ -20,7 +20,7 @@ except ImportError:
             def generate_reply(self, messages=None, sender=None, config=None):
                 return f"[{self.name}] Mock response"
 
-from config_loader import AgentsConfig, AgentDefinition
+from config.config_loader import AgentsConfig, AgentDefinition
 from .base import BaseAgent
 
 

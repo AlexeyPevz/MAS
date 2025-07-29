@@ -19,7 +19,8 @@ The high-level message flow is visualised below (see [`docs/architecture.mmd`](d
 ├── config/                 # YAML configuration files
 │   ├── agents.yaml         # definitions of root agents and their models
 │   ├── llm_tiers.yaml      # model tiers (cheap/standard/premium)
-│   └── instances.yaml      # registry of deployed MAS instances
+│   ├── instances.yaml      # registry of deployed MAS instances
+│   └── config_loader.py    # utility functions for loading configs
 ├── deploy/                 # docker compose templates
 │   ├── internal/compose.yml  # compose for internal MAS instance
 │   └── client/compose.yml    # compose for client MAS instance

@@ -129,7 +129,7 @@ async def initialize_agents() -> Dict[str, Any]:
     try:
         from pathlib import Path
         from agents.core_agents import create_agents
-        from config_loader import AgentsConfig
+        from config.config_loader import AgentsConfig
         
         # Загружаем конфигурацию агентов
         config_path = Path('config/agents.yaml')

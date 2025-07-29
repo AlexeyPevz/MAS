@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-import config_loader as cl
+import config.config_loader as cl
 
 
 def test_load_dataclass(tmp_path):
