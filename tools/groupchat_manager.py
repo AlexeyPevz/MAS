@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Dict, List
 
 # Прямой импорт AutoGen – в продакшне библиотека присутствует, иначе CI упадёт.
-from autogen.agentchat import GroupChat, GroupChatManager, ConversableAgent
+from pyautogen.agentchat import GroupChat, GroupChatManager, ConversableAgent
 
 from .callback_matrix import handle_event
 from .studio_logger import log_interaction

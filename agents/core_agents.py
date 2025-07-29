@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict
 
-from autogen.agentchat import ConversableAgent
+from pyautogen.agentchat import ConversableAgent
 
 from config_loader import AgentsConfig, AgentDefinition
 from .base import BaseAgent
@@ -85,7 +85,7 @@ class AgentBuilderAgent(BaseAgent):
         super().__init__("agent_builder", model)
 
     def build(self, spec: Dict[str, Any]) -> None:
-        from autogen import agentchat
+        from pyautogen import agentchat
 
         agentchat.build_from_spec(spec)
 

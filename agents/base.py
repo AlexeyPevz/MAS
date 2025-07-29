@@ -5,7 +5,7 @@ from typing import Any
 
 # Требуемый импорт AutoGen. При отсутствии библиотеки завершится ImportError,
 # что позволит CI выявить проблему на этапе установки зависимостей.
-from autogen.agentchat import ConversableAgent
+from pyautogen.agentchat import ConversableAgent
 
 from tools.prompt_io import read_prompt
 

@@ -1,6 +1,6 @@
 # Root-MAS: Multi-Agent System Platform
 
-Root-MAS provides a lightweight yet production-ready skeleton for building a multi-agent system on top of AutoGen.  The platform ships with:
+Root-MAS provides a lightweight yet production-ready skeleton for building a multi-agent system on top of **pyautogen**.  The platform ships with:
 
 • A core set of specialised agents (Meta, Coordination, Model-Selector, Prompt-Builder, etc.)
 • Plug-and-play tool integrations (n8n, ChromaDB, Redis, Vault, Prometheus)
@@ -62,7 +62,8 @@ For local development without Docker use the classic five-step guide below.
 
 ## Manual deployment (dev environment)
 
-1. **Install dependencies.**  Python 3.9 or newer is required.
+1. **Install dependencies.**  Python 3.9 or newer is required. The
+   platform relies on the `pyautogen` package (version `0.10.0`).
 
    ```bash
    pip install -r requirements.txt

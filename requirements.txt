@@ -8,4 +8,4 @@ schedule
 prometheus_client>=0.18.0,<1.0.0
 hvac>=1.2.0,<2.0.0
 gitpython
-autogen
+pyautogen==0.10.0
