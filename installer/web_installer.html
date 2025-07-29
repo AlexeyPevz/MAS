@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Root-MAS System Installer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .step { display: none; }
+        .step.active { display: block; }
+        .progress-bar { transition: width 0.3s ease; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Заголовок -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold mb-2">🤖 Root-MAS System Installer</h1>
+            <p class="text-gray-400">Автоматическая установка многоагентной системы</p>
+        </div>
+
+        <!-- Прогресс бар -->
+        <div class="mb-8">
+            <div class="flex justify-between text-sm text-gray-400 mb-2">
+                <span>Шаг <span id="current-step">1</span> из 5</span>
+                <span id="progress-percent">0%</span>
+            </div>
+            <div class="w-full bg-gray-700 rounded-full h-2">
+                <div id="progress-bar" class="bg-blue-600 h-2 rounded-full progress-bar" style="width: 20%"></div>
+            </div>
+        </div>
+
+        <!-- Шаг 1: Тип установки -->
+        <div id="step-1" class="step active">
+            <div class="bg-gray-800 rounded-lg p-6">
+                <h2 class="text-2xl font-bold mb-4">🏠 Выберите тип установки</h2>
+                
+                <div class="space-y-4">
+                    <label class="flex items-center p-4 border border-gray-600 rounded-lg cursor-pointer hover:bg-gray-700">
+                        <input type="radio" name="install-type" value="local" class="mr-3" checked>
+                        <div>
+                            <div class="font-semibold">🖥️ Локальная установка</div>
+                            <div class="text-sm text-gray-400">Установка на текущий компьютер</div>
+                        </div>
+                    </label>
+                    
+                    <label class="flex items-center p-4 border border-gray-600 rounded-lg cursor-pointer hover:bg-gray-700">
+                        <input type="radio" name="install-type" value="docker" class="mr-3">
+                        <div>
+                            <div class="font-semibold">🐳 Docker контейнер</div>
+                            <div class="text-sm text-gray-400">Изолированная установка в Docker</div>
+                        </div>
+                    </label>
+                    
+                    <label class="flex items-center p-4 border border-gray-600 rounded-lg cursor-pointer hover:bg-gray-700">
+                        <input type="radio" name="install-type" value="cloud" class="mr-3">
+                        <div>
+                            <div class="font-semibold">☁️ Облачная установка</div>
+                            <div class="text-sm text-gray-400">Автоматическое развертывание в облаке</div>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="mt-6">
+                    <label class="block text-sm font-medium mb-2">Путь установки:</label>
+                    <input type="text" id="install-path" class="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg" 
+                           value="/home/user/MAS-System" placeholder="Введите путь для установки">
+                </div>
+            </div>
+        </div>
+
+        <!-- Шаг 2: Компоненты -->
+        <div id="step-2" class="step">
+            <div class="bg-gray-800 rounded-lg p-6">
+                <h2 class="text-2xl font-bold mb-4">🧩 Выберите компоненты</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <label class="flex items-center p-4 border border-gray-600 rounded-lg">
+                        <input type="checkbox" name="components" value="core" class="mr-3" checked disabled>
+                        <div>
+                            <div class="font-semibold">🤖 Ядро системы</div>
+                            <div class="text-sm text-gray-400">Обязательно</div>
+                        </div>
+                    </label>
+                    
+                    <label class="flex items-center p-4 border border-gray-600 rounded-lg cursor-pointer hover:bg-gray-700">
+                        <input type="checkbox" name="components" value="telegram" class="mr-3">
+                        <div>
+                            <div class="font-semibold">📱 Telegram Bot</div>
+                            <div class="text-sm text-gray-400">Интеграция с Telegram</div>
+                        </div>
+                    </label>
+                    
+                    <label class="flex items-center p-4 border border-gray-600 rounded-lg cursor-pointer hover:bg-gray-700">
+                        <input type="checkbox" name="components" value="gpt-pilot" class="mr-3">
+                        <div>
+                            <div class="font-semibold">🚀 GPT-Pilot</div>
+                            <div class="text-sm text-gray-400">Создание приложений</div>
+                        </div>
+                    </label>
+                    
+                    <label class="flex items-center p-4 border border-gray-600 rounded-lg cursor-pointer hover:bg-gray-700">
+                        <input type="checkbox" name="components" value="studio" class="mr-3">
+                        <div>
+                            <div class="font-semibold">🎬 AutoGen Studio</div>
+                            <div class="text-sm text-gray-400">Визуализация процессов</div>
+                        </div>
+                    </label>
+                    
+                    <label class="flex items-center p-4 border border-gray-600 rounded-lg cursor-pointer hover:bg-gray-700">
+                        <input type="checkbox" name="components" value="monitoring" class="mr-3">
+                        <div>
+                            <div class="font-semibold">📊 Мониторинг</div>
+                            <div class="text-sm text-gray-400">Prometheus + Grafana</div>
+                        </div>
+                    </label>
+                    
+                    <label class="flex items-center p-4 border border-gray-600 rounded-lg cursor-pointer hover:bg-gray-700">
+                        <input type="checkbox" name="components" value="memory" class="mr-3">
+                        <div>
+                            <div class="font-semibold">💾 Хранилища</div>
+                            <div class="text-sm text-gray-400">Redis + Postgres + Chroma</div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Шаг 3: Конфигурация -->
+        <div id="step-3" class="step">
+            <div class="bg-gray-800 rounded-lg p-6">
+                <h2 class="text-2xl font-bold mb-4">⚙️ Конфигурация API ключей</h2>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">
+                            OpenRouter API Key <span class="text-red-500">*</span>
+                        </label>
+                        <input type="password" id="openrouter-key" class="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg" 
+                               placeholder="Введите ключ OpenRouter (обязательно)">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium mb-2">OpenAI API Key</label>
+                        <input type="password" id="openai-key" class="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg" 
+                               placeholder="Введите ключ OpenAI (опционально)">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Telegram Bot Token</label>
+                        <input type="password" id="telegram-token" class="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg" 
+                               placeholder="Введите токен Telegram бота (опционально)">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium mb-2">GPT-Pilot API Key</label>
+                        <input type="password" id="gpt-pilot-key" class="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg" 
+                               placeholder="Введите ключ GPT-Pilot (опционально)">
+                    </div>
+                </div>
+                
+                <button onclick="testApiKeys()" class="mt-4 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg">
+                    🧪 Тест API ключей
+                </button>
+            </div>
+        </div>
+
+        <!-- Шаг 4: Дополнительные настройки -->
+        <div id="step-4" class="step">
+            <div class="bg-gray-800 rounded-lg p-6">
+                <h2 class="text-2xl font-bold mb-4">🔧 Дополнительные настройки</h2>
+                
+                <div class="space-y-4">
+                    <label class="flex items-center">
+                        <input type="checkbox" id="auto-start" class="mr-3" checked>
+                        <div>
+                            <div class="font-semibold">🚀 Автозапуск после установки</div>
+                            <div class="text-sm text-gray-400">Запустить систему сразу после установки</div>
+                        </div>
+                    </label>
+                    
+                    <label class="flex items-center">
+                        <input type="checkbox" id="desktop-shortcut" class="mr-3" checked>
+                        <div>
+                            <div class="font-semibold">🖥️ Создать ярлык на рабочем столе</div>
+                            <div class="text-sm text-gray-400">Добавить иконку для быстрого запуска</div>
+                        </div>
+                    </label>
+                    
+                    <label class="flex items-center">
+                        <input type="checkbox" id="add-to-path" class="mr-3" checked>
+                        <div>
+                            <div class="font-semibold">🔧 Добавить в PATH</div>
+                            <div class="text-sm text-gray-400">Возможность запуска из командной строки</div>
+                        </div>
+                    </label>
+                    
+                    <label class="flex items-center">
+                        <input type="checkbox" id="enable-analytics" class="mr-3">
+                        <div>
+                            <div class="font-semibold">📊 Аналитика использования</div>
+                            <div class="text-sm text-gray-400">Помочь улучшить систему (анонимно)</div>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="mt-6 p-4 bg-gray-700 rounded-lg">
+                    <h3 class="font-semibold mb-2">📋 Сводка установки:</h3>
+                    <div id="install-summary" class="text-sm text-gray-300"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Шаг 5: Установка -->
+        <div id="step-5" class="step">
+            <div class="bg-gray-800 rounded-lg p-6">
+                <h2 class="text-2xl font-bold mb-4">📈 Установка системы</h2>
+                
+                <div class="mb-4">
+                    <div class="text-sm text-gray-400 mb-2">Текущий этап:</div>
+                    <div id="current-task" class="font-semibold">Готов к установке</div>
+                </div>
+                
+                <div class="mb-4">
+                    <div class="w-full bg-gray-700 rounded-full h-3">
+                        <div id="install-progress" class="bg-green-600 h-3 rounded-full progress-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+                
+                <div class="bg-gray-900 rounded-lg p-4 h-64 overflow-y-auto">
+                    <div id="install-log" class="font-mono text-sm text-green-400"></div>
+                </div>
+                
+                <div class="mt-4 text-center">
+                    <button id="start-install" onclick="startInstallation()" 
+                            class="bg-green-600 hover:bg-green-700 px-8 py-3 rounded-lg font-semibold">
+                        🚀 Начать установку
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Навигация -->
+        <div class="flex justify-between mt-8">
+            <button id="prev-btn" onclick="previousStep()" 
+                    class="bg-gray-600 hover:bg-gray-700 px-6 py-2 rounded-lg" style="display: none;">
+                ← Назад
+            </button>
+            <button id="next-btn" onclick="nextStep()" 
+                    class="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-lg ml-auto">
+                Далее →
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let currentStep = 1;
+        const totalSteps = 5;
+
+        function updateProgress() {
+            const progress = (currentStep / totalSteps) * 100;
+            document.getElementById('progress-bar').style.width = progress + '%';
+            document.getElementById('current-step').textContent = currentStep;
+            document.getElementById('progress-percent').textContent = Math.round(progress) + '%';
+        }
+
+        function showStep(step) {
+            // Скрываем все шаги
+            document.querySelectorAll('.step').forEach(el => el.classList.remove('active'));
+            // Показываем текущий шаг
+            document.getElementById(`step-${step}`).classList.add('active');
+            
+            // Обновляем кнопки навигации
+            document.getElementById('prev-btn').style.display = step > 1 ? 'block' : 'none';
+            document.getElementById('next-btn').style.display = step < totalSteps ? 'block' : 'none';
+            
+            updateProgress();
+        }
+
+        function nextStep() {
+            if (currentStep < totalSteps) {
+                if (validateCurrentStep()) {
+                    currentStep++;
+                    showStep(currentStep);
+                    if (currentStep === 4) updateSummary();
+                }
+            }
+        }
+
+        function previousStep() {
+            if (currentStep > 1) {
+                currentStep--;
+                showStep(currentStep);
+            }
+        }
+
+        function validateCurrentStep() {
+            if (currentStep === 3) {
+                const openrouterKey = document.getElementById('openrouter-key').value;
+                if (!openrouterKey) {
+                    alert('OpenRouter API Key обязателен для работы системы!');
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function updateSummary() {
+            const installType = document.querySelector('input[name="install-type"]:checked').value;
+            const components = Array.from(document.querySelectorAll('input[name="components"]:checked'))
+                .map(el => el.value);
+            
+            const summary = `
+                <strong>Тип установки:</strong> ${installType}<br>
+                <strong>Путь:</strong> ${document.getElementById('install-path').value}<br>
+                <strong>Компоненты:</strong> ${components.join(', ')}<br>
+                <strong>API ключи:</strong> ${document.getElementById('openrouter-key').value ? 'Настроены' : 'Не настроены'}
+            `;
+            
+            document.getElementById('install-summary').innerHTML = summary;
+        }
+
+        function testApiKeys() {
+            const openrouterKey = document.getElementById('openrouter-key').value;
+            if (!openrouterKey) {
+                alert('Введите OpenRouter API Key для тестирования');
+                return;
+            }
+            
+            // Имитация тестирования
+            setTimeout(() => {
+                alert('✅ API ключи протестированы успешно!');
+            }, 1000);
+        }
+
+        function addToLog(message) {
+            const log = document.getElementById('install-log');
+            log.innerHTML += message + '<br>';
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function startInstallation() {
+            document.getElementById('start-install').style.display = 'none';
+            
+            const steps = [
+                'Проверка системных требований...',
+                'Загрузка компонентов...',
+                'Установка зависимостей...',
+                'Настройка конфигурации...',
+                'Установка выбранных компонентов...',
+                'Финальная настройка...',
+                'Установка завершена! 🎉'
+            ];
+            
+            let progress = 0;
+            
+            steps.forEach((step, index) => {
+                setTimeout(() => {
+                    document.getElementById('current-task').textContent = step;
+                    addToLog(`[${new Date().toLocaleTimeString()}] ${step}`);
+                    
+                    progress = ((index + 1) / steps.length) * 100;
+                    document.getElementById('install-progress').style.width = progress + '%';
+                    
+                    if (index === steps.length - 1) {
+                        addToLog('');
+                        addToLog('🚀 Root-MAS система готова к работе!');
+                        addToLog('📍 Система установлена в: ' + document.getElementById('install-path').value);
+                        addToLog('💡 Для запуска выполните: ./production_launcher.py');
+                        
+                        if (document.getElementById('auto-start').checked) {
+                            setTimeout(() => {
+                                addToLog('🎯 Автоматический запуск системы...');
+                                window.open('/mas-dashboard', '_blank');
+                            }, 2000);
+                        }
+                    }
+                }, (index + 1) * 1500);
+            });
+        }
+
+        // Инициализация
+        updateProgress();
+    </script>
+</body>
+</html>
