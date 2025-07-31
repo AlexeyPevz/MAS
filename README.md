@@ -57,10 +57,12 @@ The high-level message flow is visualised below (see [`docs/architecture.mmd`](d
    ```
 
 3. **That's it!** 🎉 Your MAS system is running with:
-   - All 12 agents initialized
+   - All 12 agents initialized (including the new Budget-Manager)
+   - API server on http://localhost:8000
    - PostgreSQL, Redis, ChromaDB running
    - Prometheus metrics on port 9000
-   - Interactive interface ready
+   - Telegram bot (if configured)
+   - Interactive PWA interface ready
 
 ### Quick Commands
 

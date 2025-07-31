@@ -28,9 +28,9 @@ class Message:
 class SmartGroupChatManager:
     """Продвинутый менеджер групповых чатов"""
     
-    def __init__(self, agents: Dict[str, Any], routing: Dict[str, List[str]]):
-        self.agents = agents
-        self.routing = routing
+    def __init__(self, agents: Dict[str, Any] = None, routing: Dict[str, List[str]] = None):
+        self.agents = agents or {}
+        self.routing = routing or {}
         self.conversation_history: List[Message] = []
         self.active_tasks: Dict[str, Dict] = {}
         self.logger = logging.getLogger(__name__)
@@ -38,6 +38,45 @@ class SmartGroupChatManager:
         # Конфигурация системы
         self.max_conversation_length = 50
         self.max_retries = 3
+        self._initialized = False
+    
+    async def initialize(self):
+        """Инициализация менеджера группового чата"""
+        if self._initialized:
+            return
+        
+        self.logger.info("🔧 Инициализация SmartGroupChatManager...")
+        
+        # Загружаем конфигурацию агентов если не заданы
+        if not self.agents:
+            from config.config_loader import load_config
+            from agents.core_agents import AGENT_CLASSES
+            
+            config = load_config()
+            agents_config = config.get('agents', {})
+            
+            # Создаем экземпляры агентов
+            for agent_name, agent_info in agents_config.items():
+                if agent_name in AGENT_CLASSES:
+                    agent_class = AGENT_CLASSES[agent_name]
+                    tier = agent_info.get('default_tier', 'cheap')
+                    self.agents[agent_name] = agent_class(tier=tier)
+                    self.logger.info(f"✅ Создан агент: {agent_name}")
+        
+        # Настраиваем маршрутизацию по умолчанию если не задана
+        if not self.routing:
+            self.routing = {
+                "communicator": ["meta"],
+                "meta": ["coordination", "researcher", "model_selector"],
+                "coordination": ["agent_builder", "instance_factory"],
+                "researcher": ["fact_checker", "multi_tool"],
+                "model_selector": ["prompt_builder"],
+                "workflow_builder": ["instance_factory"],
+                "webapp_builder": ["instance_factory"],
+            }
+        
+        self._initialized = True
+        self.logger.info("✅ SmartGroupChatManager инициализирован")
         
     async def process_user_message(self, content: str, user_id: str = "user") -> str:
         """Обработка сообщения от пользователя"""
