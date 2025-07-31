@@ -21,6 +21,16 @@ from dataclasses import dataclass
 import configparser
 from datetime import datetime
 
+# Импортируем обработчик ошибок
+try:
+    from error_handler import ErrorHandler, SafeInstaller, safe_execution
+except ImportError:
+    # Если модуль не найден, создаем заглушки
+    ErrorHandler = None
+    SafeInstaller = None
+    def safe_execution(func):
+        return func
+
 
 @dataclass
 class InstallConfig:
@@ -62,6 +72,9 @@ class UniversalInstaller:
         
         # Флаг установки
         self.installation_running = False
+        
+        # Обработчик ошибок
+        self.error_handler = ErrorHandler(self.log) if ErrorHandler else None
         
         # Создаем интерфейс
         self.create_widgets()
@@ -848,8 +861,26 @@ class UniversalInstaller:
                     else:
                         raise Exception(f"Ошибка на этапе: {step_name}")
                 except Exception as e:
-                    self.log(f"✗ {step_name} - ошибка: {str(e)}", "ERROR")
-                    raise
+                    # Используем обработчик ошибок если доступен
+                    if self.error_handler:
+                        if self.error_handler.handle_error(e, context=step_name):
+                            # Если ошибка обработана, пробуем этот шаг еще раз
+                            self.log(f"↻ Повторяем {step_name} после исправления ошибки", "INFO")
+                            try:
+                                success = step_func()
+                                if success:
+                                    self.log(f"✓ {step_name} - завершено после повтора", "SUCCESS")
+                                else:
+                                    raise Exception(f"Повторная ошибка: {step_name}")
+                            except Exception as retry_error:
+                                self.log(f"✗ {step_name} - повторная ошибка: {str(retry_error)}", "ERROR")
+                                raise
+                        else:
+                            self.log(f"✗ {step_name} - не удалось исправить ошибку", "ERROR")
+                            raise
+                    else:
+                        self.log(f"✗ {step_name} - ошибка: {str(e)}", "ERROR")
+                        raise
                     
                 total_progress += step_weight
                 self.update_progress(total_progress)
@@ -862,10 +893,25 @@ class UniversalInstaller:
             
         except Exception as e:
             self.log(f"\n❌ Установка прервана: {str(e)}", "ERROR")
-            messagebox.showerror(
-                "Ошибка установки",
-                f"Произошла ошибка:\n{str(e)}"
-            )
+            
+            # Даем расширенные рекомендации при ошибке
+            error_message = f"Произошла ошибка:\n{str(e)}\n\n"
+            
+            if self.error_handler:
+                error_message += "Рекомендации:\n"
+                error_message += "• Проверьте логи для деталей\n"
+                error_message += "• Запустите проверку системы\n"
+                error_message += "• Попробуйте другой тип установки\n"
+                
+                if "permission" in str(e).lower():
+                    error_message += "\n⚠️ Возможно требуются права администратора"
+                elif "space" in str(e).lower():
+                    error_message += "\n⚠️ Проверьте свободное место на диске"
+                elif "connection" in str(e).lower():
+                    error_message += "\n⚠️ Проверьте интернет соединение"
+                    
+            messagebox.showerror("Ошибка установки", error_message)
+            
         finally:
             self.installation_running = False
             self.install_btn.config(state='normal')
