@@ -1,1 +1,37 @@
 <!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoGen Studio - Root-MAS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col">
+    <header class="bg-blue-600 text-white p-4 shadow">
+        <h1 class="text-xl font-bold">🎬 AutoGen Studio</h1>
+    </header>
+    <main class="flex-1 p-4 overflow-y-auto">
+        <div id="log" class="bg-white rounded shadow p-4 h-full overflow-y-auto font-mono text-sm"></div>
+    </main>
+    <script>
+    (function() {
+        const logEl = document.getElementById('log');
+        function append(msg, cls='') {
+            const pre = document.createElement('pre');
+            pre.textContent = msg;
+            if (cls) pre.classList.add(cls);
+            logEl.appendChild(pre);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+        const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+        const wsUrl = `${proto}://${location.host}/ws/visualization`;
+        append(`Connecting to ${wsUrl} ...`, 'text-gray-500');
+        const ws = new WebSocket(wsUrl);
+        ws.onopen = () => append('[connected]', 'text-green-600');
+        ws.onmessage = (ev) => append(ev.data);
+        ws.onerror = (ev) => append('[error]', 'text-red-600');
+        ws.onclose = () => append('[connection closed]', 'text-gray-500');
+    })();
+    </script>
+</body>
+</html>

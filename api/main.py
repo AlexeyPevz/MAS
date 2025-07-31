@@ -11,6 +11,7 @@ import json
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -254,6 +255,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Путь к PWA статике
+pwa_path = Path(__file__).resolve().parent.parent / "pwa"
+if pwa_path.exists():
+    app.mount("/pwa", StaticFiles(directory=str(pwa_path), html=True), name="pwa")
+    from fastapi.responses import RedirectResponse
+    @app.get("/app", include_in_schema=False)
+    async def redirect_to_pwa():
+        return RedirectResponse(url="/pwa/")
 
 
 async def initialize_mas_system():

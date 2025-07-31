@@ -104,7 +104,7 @@ unset TELEGRAM_BOT_TOKEN && python3 run_system.py
 - **Голос:** `POST /api/v1/voice/chat` (если настроен SpeechKit)
 
 ### PWA приложение:
-Откройте `pwa/index.html` в браузере или сервируйте через веб-сервер.
+Откройте `http://localhost:8000/app` в браузере (API уже раздаёт статику PWA).
 
 ### Telegram Bot:
 Если настроен `TELEGRAM_BOT_TOKEN` - бот автоматически запустится.
