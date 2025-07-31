@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Root-MAS PWA</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2563eb">
+    
+    <!-- Tailwind CSS для красоты -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        /* Кастомные стили */
+        .chat-message {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .loading {
+            border-top-color: #3498db;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-blue-600 text-white p-4 shadow-lg">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold">🤖 Root-MAS</h1>
+            <div class="flex space-x-4">
+                <button id="tab-chat" class="px-4 py-2 rounded bg-blue-700">💬 Чат</button>
+                <button id="tab-dashboard" class="px-4 py-2 rounded">📊 Dashboard</button>
+                <button id="tab-studio" class="px-4 py-2 rounded">🎬 Studio</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Chat Tab -->
+    <div id="chat-tab" class="container mx-auto p-4">
+        <div class="max-w-4xl mx-auto">
+            <!-- Chat Messages -->
+            <div id="chat-messages" class="bg-white rounded-lg shadow-lg p-4 h-96 overflow-y-auto mb-4">
+                <div class="text-gray-500 text-center">
+                    💬 Начните диалог с вашим AI помощником
+                </div>
+            </div>
+            
+            <!-- Voice Controls -->
+            <div class="bg-white rounded-lg shadow-lg p-4 mb-4">
+                <div class="flex items-center space-x-4">
+                    <button id="voice-btn" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-full">
+                        🎤 Говорить
+                    </button>
+                    <div id="voice-status" class="text-gray-600">
+                        Нажмите для записи голосового сообщения
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Message Input -->
+            <div class="bg-white rounded-lg shadow-lg p-4">
+                <div class="flex space-x-4">
+                    <input 
+                        type="text" 
+                        id="message-input" 
+                        placeholder="Напишите сообщение..."
+                        class="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500"
+                    >
+                    <button 
+                        id="send-btn" 
+                        class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg"
+                    >
+                        Отправить
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Tab -->
+    <div id="dashboard-tab" class="container mx-auto p-4 hidden">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- System Status -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-lg font-semibold mb-4">📊 Статус системы</h3>
+                <div id="system-metrics" class="space-y-2">
+                    <div class="flex justify-between">
+                        <span>Uptime:</span>
+                        <span id="uptime">--</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Сообщений:</span>
+                        <span id="total-messages">--</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Агентов активно:</span>
+                        <span id="active-agents">--</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Agents Status -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-lg font-semibold mb-4">🤖 Агенты</h3>
+                <div id="agents-status" class="space-y-2">
+                    <!-- Агенты будут загружены через API -->
+                </div>
+            </div>
+            
+            <!-- Recent Activity -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-lg font-semibold mb-4">📝 Активность</h3>
+                <div id="recent-activity" class="space-y-2 text-sm">
+                    <!-- Активность будет загружена через API -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Studio Tab (iframe) -->
+    <div id="studio-tab" class="hidden">
+        <iframe 
+            id="studio-iframe"
+            src="http://localhost:8081" 
+            class="w-full h-screen border-0"
+            title="AutoGen Studio"
+        >
+        </iframe>
+    </div>
+
+    <!-- API Integration Script -->
+    <script>
+        class RootMASAPI {
+            constructor(baseURL = 'http://localhost:8000') {
+                this.baseURL = baseURL;
+                this.websocket = null;
+            }
+            
+            // API методы
+            async sendMessage(message, userId = 'pwa_user') {
+                try {
+                    const response = await fetch(`${this.baseURL}/api/v1/chat/message`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            message: message,
+                            user_id: userId,
+                            metadata: {
+                                source: 'pwa',
+                                timestamp: new Date().toISOString()
+                            }
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    return await response.json();
+                } catch (error) {
+                    console.error('Error sending message:', error);
+                    throw error;
+                }
+            }
+            
+            async getSystemMetrics() {
+                try {
+                    const response = await fetch(`${this.baseURL}/api/v1/metrics/dashboard`);
+                    return await response.json();
+                } catch (error) {
+                    console.error('Error getting metrics:', error);
+                    return null;
+                }
+            }
+            
+            async getAgentsStatus() {
+                try {
+                    const response = await fetch(`${this.baseURL}/api/v1/agents/status`);
+                    return await response.json();
+                } catch (error) {
+                    console.error('Error getting agents status:', error);
+                    return null;
+                }
+            }
+            
+            async getChatHistory(limit = 20) {
+                try {
+                    const response = await fetch(`${this.baseURL}/api/v1/chat/history?limit=${limit}`);
+                    return await response.json();
+                } catch (error) {
+                    console.error('Error getting chat history:', error);
+                    return null;
+                }
+            }
+            
+            // WebSocket для real-time
+            connectWebSocket() {
+                const wsURL = this.baseURL.replace('http', 'ws') + '/ws';
+                this.websocket = new WebSocket(wsURL);
+                
+                this.websocket.onopen = () => {
+                    console.log('WebSocket connected');
+                };
+                
+                this.websocket.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    this.handleWebSocketMessage(data);
+                };
+                
+                this.websocket.onclose = () => {
+                    console.log('WebSocket disconnected');
+                    // Переподключение через 5 секунд
+                    setTimeout(() => this.connectWebSocket(), 5000);
+                };
+            }
+            
+            handleWebSocketMessage(data) {
+                if (data.type === 'new_message') {
+                    // Обновляем чат в real-time
+                    this.displayMessage(data.data.response, 'agent');
+                }
+            }
+            
+            displayMessage(text, sender = 'user') {
+                const messagesDiv = document.getElementById('chat-messages');
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `chat-message mb-4 ${sender === 'user' ? 'text-right' : 'text-left'}`;
+                
+                const bubble = document.createElement('div');
+                bubble.className = `inline-block px-4 py-2 rounded-lg max-w-xs lg:max-w-md ${
+                    sender === 'user' 
+                        ? 'bg-blue-500 text-white' 
+                        : 'bg-gray-200 text-gray-800'
+                }`;
+                bubble.textContent = text;
+                
+                const avatar = document.createElement('div');
+                avatar.className = 'text-sm text-gray-500 mt-1';
+                avatar.textContent = sender === 'user' ? '👤 Вы' : '🤖 Communicator';
+                
+                messageDiv.appendChild(bubble);
+                messageDiv.appendChild(avatar);
+                messagesDiv.appendChild(messageDiv);
+                
+                // Автоскролл
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            }
+        }
+        
+        // Инициализация
+        const api = new RootMASAPI();
+        let isRecording = false;
+        let mediaRecorder = null;
+        
+        // Tabs management
+        function showTab(tabName) {
+            // Скрываем все табы
+            document.querySelectorAll('[id$="-tab"]').forEach(tab => {
+                tab.classList.add('hidden');
+            });
+            
+            // Показываем нужный таб
+            document.getElementById(tabName + '-tab').classList.remove('hidden');
+            
+            // Обновляем кнопки
+            document.querySelectorAll('[id^="tab-"]').forEach(btn => {
+                btn.classList.remove('bg-blue-700');
+            });
+            document.getElementById('tab-' + tabName).classList.add('bg-blue-700');
+        }
+        
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            // Подключение WebSocket
+            api.connectWebSocket();
+            
+            // Загрузка истории чата
+            loadChatHistory();
+            
+            // Tabs
+            document.getElementById('tab-chat').addEventListener('click', () => showTab('chat'));
+            document.getElementById('tab-dashboard').addEventListener('click', () => {
+                showTab('dashboard');
+                loadDashboard();
+            });
+            document.getElementById('tab-studio').addEventListener('click', () => showTab('studio'));
+            
+            // Chat
+            document.getElementById('send-btn').addEventListener('click', sendMessage);
+            document.getElementById('message-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') sendMessage();
+            });
+            
+            // Voice
+            document.getElementById('voice-btn').addEventListener('click', toggleRecording);
+        });
+        
+        async function sendMessage() {
+            const input = document.getElementById('message-input');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            // Показываем сообщение пользователя
+            api.displayMessage(message, 'user');
+            input.value = '';
+            
+            // Показываем индикатор загрузки
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'text-center text-gray-500';
+            loadingDiv.innerHTML = '<div class="loading w-6 h-6 border-4 border-gray-200 rounded-full mx-auto"></div>';
+            document.getElementById('chat-messages').appendChild(loadingDiv);
+            
+            try {
+                // Отправляем в API
+                const response = await api.sendMessage(message);
+                
+                // Удаляем индикатор загрузки
+                loadingDiv.remove();
+                
+                // Показываем ответ агента (если не пришел через WebSocket)
+                if (response.response) {
+                    api.displayMessage(response.response, 'agent');
+                }
+                
+            } catch (error) {
+                loadingDiv.remove();
+                api.displayMessage('❌ Ошибка: ' + error.message, 'system');
+            }
+        }
+        
+        async function loadChatHistory() {
+            try {
+                const history = await api.getChatHistory(10);
+                if (history && history.messages) {
+                    history.messages.forEach(msg => {
+                        api.displayMessage(msg.user_message, 'user');
+                        api.displayMessage(msg.agent_response, 'agent');
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading chat history:', error);
+            }
+        }
+        
+        async function loadDashboard() {
+            try {
+                // Системные метрики
+                const metrics = await api.getSystemMetrics();
+                if (metrics) {
+                    document.getElementById('uptime').textContent = metrics.uptime || '--';
+                    document.getElementById('total-messages').textContent = metrics.total_messages || '0';
+                    document.getElementById('active-agents').textContent = metrics.active_agents || '0';
+                }
+                
+                // Статус агентов
+                const agents = await api.getAgentsStatus();
+                if (agents && agents.agents) {
+                    const agentsDiv = document.getElementById('agents-status');
+                    agentsDiv.innerHTML = '';
+                    
+                    agents.agents.forEach(agent => {
+                        const agentDiv = document.createElement('div');
+                        agentDiv.className = 'flex justify-between items-center';
+                        agentDiv.innerHTML = `
+                            <span>${agent.name}</span>
+                            <span class="text-sm ${agent.status === 'active' ? 'text-green-500' : 'text-gray-500'}">
+                                ${agent.status === 'active' ? '🟢' : '🔴'} ${agent.status}
+                            </span>
+                        `;
+                        agentsDiv.appendChild(agentDiv);
+                    });
+                }
+                
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+            }
+        }
+        
+        // Voice Recording (заглушка)
+        async function toggleRecording() {
+            const btn = document.getElementById('voice-btn');
+            const status = document.getElementById('voice-status');
+            
+            if (!isRecording) {
+                // Начинаем запись
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    
+                    btn.textContent = '⏹️ Остановить';
+                    btn.className = 'bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-full';
+                    status.textContent = '🎤 Идет запись...';
+                    
+                    mediaRecorder.start();
+                    isRecording = true;
+                    
+                    mediaRecorder.ondataavailable = (event) => {
+                        // Здесь будет обработка аудио и отправка в Speech-to-Text
+                        console.log('Audio data available:', event.data);
+                    };
+                    
+                } catch (error) {
+                    console.error('Microphone access denied:', error);
+                    status.textContent = '❌ Нет доступа к микрофону';
+                }
+            } else {
+                // Останавливаем запись
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                
+                btn.textContent = '🎤 Говорить';
+                btn.className = 'bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-full';
+                status.textContent = 'Обрабатываем голосовое сообщение...';
+                
+                isRecording = false;
+                
+                // Заглушка - показываем что голос "распознан"
+                setTimeout(() => {
+                    status.textContent = 'Голос распознан (пока не работает)';
+                    setTimeout(() => {
+                        status.textContent = 'Нажмите для записи голосового сообщения';
+                    }, 2000);
+                }, 1000);
+            }
+        }
+    </script>
+</body>
+</html>

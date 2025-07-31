@@ -184,6 +184,87 @@ async def health_check():
 
 
 # =============================================================================
+# VOICE API - для голосовых функций
+# =============================================================================
+
+from tools.yandex_speechkit import speechkit, process_voice_message, synthesize_response
+
+@app.post("/api/v1/voice/stt")
+async def speech_to_text(audio_file: bytes):
+    """Распознавание речи в текст"""
+    try:
+        if not speechkit.is_configured():
+            raise HTTPException(status_code=503, detail="SpeechKit не настроен")
+        
+        text = await speechkit.speech_to_text(audio_file)
+        
+        if text:
+            return {"text": text, "status": "success"}
+        else:
+            return {"text": "", "status": "empty", "message": "Не удалось распознать речь"}
+            
+    except Exception as e:
+        logger.error(f"❌ Ошибка STT: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/v1/voice/tts")
+async def text_to_speech(request: dict):
+    """Синтез речи из текста"""
+    try:
+        if not speechkit.is_configured():
+            raise HTTPException(status_code=503, detail="SpeechKit не настроен")
+        
+        text = request.get("text", "")
+        if not text:
+            raise HTTPException(status_code=400, detail="Текст не указан")
+        
+        audio_data = await speechkit.text_to_speech(text)
+        
+        if audio_data:
+            from fastapi.responses import Response
+            return Response(
+                content=audio_data,
+                media_type="audio/ogg",
+                headers={"Content-Disposition": "attachment; filename=speech.ogg"}
+            )
+        else:
+            raise HTTPException(status_code=500, detail="Ошибка синтеза речи")
+            
+    except Exception as e:
+        logger.error(f"❌ Ошибка TTS: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/v1/voice/chat", response_model=ChatResponse)
+async def voice_chat(audio_file: bytes, user_id: str = "voice_user"):
+    """Голосовой чат: STT -> Chat -> TTS"""
+    try:
+        # 1. Распознаем речь
+        text = await process_voice_message(audio_file)
+        if not text or text.startswith("❌") or text.startswith("🔧"):
+            raise HTTPException(status_code=400, detail=text or "Ошибка распознавания")
+        
+        # 2. Обрабатываем через MAS
+        chat_msg = ChatMessage(message=text, user_id=user_id)
+        chat_response = await send_message(chat_msg)
+        
+        # 3. Синтезируем голосовой ответ
+        audio_data = await synthesize_response(chat_response.response)
+        
+        # 4. Возвращаем результат с аудио
+        chat_response.metadata = chat_response.metadata or {}
+        chat_response.metadata["has_audio"] = audio_data is not None
+        chat_response.metadata["recognized_text"] = text
+        
+        return chat_response
+        
+    except Exception as e:
+        logger.error(f"❌ Ошибка voice chat: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
 # CHAT API - для диалога с Communicator Agent
 # =============================================================================
 

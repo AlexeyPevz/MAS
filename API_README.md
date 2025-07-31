@@ -15,6 +15,10 @@ pip install -r requirements.txt
 ```bash
 export OPENROUTER_API_KEY="your-key-here"
 export TELEGRAM_BOT_TOKEN="your-bot-token"  # опционально
+
+# Для голосовых функций (опционально)
+export YANDEX_API_KEY="your-yandex-api-key"
+export YANDEX_FOLDER_ID="your-yandex-folder-id"
 ```
 
 ### 3. Запуск системы
@@ -72,6 +76,11 @@ python run_system.py
 - `GET /api/v1/chat/history` - История диалогов
 - `WS /ws` - WebSocket для real-time
 
+### Voice API (если настроен Yandex SpeechKit)
+- `POST /api/v1/voice/stt` - Speech-to-Text (распознавание речи)
+- `POST /api/v1/voice/tts` - Text-to-Speech (синтез речи)  
+- `POST /api/v1/voice/chat` - Полный голосовой чат (STT + Chat + TTS)
+
 ### Metrics API
 - `GET /api/v1/metrics/dashboard` - Системные метрики
 - `GET /api/v1/agents/status` - Статус агентов
@@ -106,18 +115,23 @@ unset TELEGRAM_BOT_TOKEN && python run_system.py
 ## 🤖 Telegram Bot
 
 Бот теперь работает через API:
-1. Получает сообщения от пользователей
-2. Отправляет их в API (`/api/v1/chat/message`)
+1. Получает сообщения от пользователей (текст + голос)
+2. Отправляет их в API (`/api/v1/chat/message` или `/api/v1/voice/chat`)
 3. Получает ответы от Communicator Agent
-4. Отправляет ответы пользователям
+4. Отправляет ответы пользователям (текст + голос)
+
+**Голосовые функции работают если настроен Yandex SpeechKit!**
 
 ## 🔮 Дальнейшие шаги
 
 ### Для PWA:
-1. Создать React/Vue.js приложение
-2. Подключить к API endpoints
-3. Добавить iframe для AutoGen Studio
-4. Реализовать real-time через WebSocket
+1. ✅ **Готово!** Базовое PWA создано (`pwa/index.html`)
+2. ✅ **Готово!** Подключено к API endpoints
+3. ✅ **Готово!** Добавлен iframe для AutoGen Studio
+4. ✅ **Готово!** Real-time через WebSocket
+5. 🔄 **Запуск**: Сервируйте `pwa/` через HTTP сервер (например nginx)
+
+**Откройте:** http://your-server/pwa/ для использования PWA!
 
 ### Для Telegram Mini App:
 1. Использовать Telegram WebApp API
