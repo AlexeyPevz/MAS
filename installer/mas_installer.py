@@ -156,9 +156,8 @@ class MASInstaller:
         config_frame.pack(fill='both', expand=True, padx=20)
         
         self.config_vars = {}
-        configs = [
+                    configs = [
             ('OPENROUTER_API_KEY', 'OpenRouter API Key (обязательно):', True),
-            ('OPENAI_API_KEY', 'OpenAI API Key:', False),
             ('TELEGRAM_BOT_TOKEN', 'Telegram Bot Token:', False),
             ('GPT_PILOT_API_KEY', 'GPT-Pilot API Key:', False),
             ('YANDEX_GPT_API_KEY', 'Yandex GPT API Key:', False),
