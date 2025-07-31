@@ -19,15 +19,17 @@ sys.path.insert(0, str(project_root))
 async def main():
     """Главная функция запуска системы"""
     
-    # Настройка логирования
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[
-            logging.StreamHandler(),
-            logging.FileHandler("logs/system.log")
-        ]
-    )
+    # Настройка логирования с ротацией
+    from tools.logging_config import setup_production_logging, setup_development_logging, log_monitor
+    
+    environment = os.getenv("ENVIRONMENT", "production")
+    if environment == "production":
+        setup_production_logging()
+    else:
+        setup_development_logging()
+    
+    # Проверяем размер логов
+    log_monitor()
     
     logger = logging.getLogger(__name__)
     logger.info("🚀 Запуск Root-MAS System...")
