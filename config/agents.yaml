@@ -105,3 +105,12 @@ agents:
       conversation memory.
     default_tier: fixed
     memory: chat_mem
+
+  budget_manager:
+    role: Budget-Manager
+    description: >-
+      Tracks and manages budget allocation across all agents and operations.
+      Monitors API costs, enforces spending limits, and provides cost analytics.
+      Uses cheap models for routine budget checks.
+    default_tier: cheap
+    memory: budget_db
