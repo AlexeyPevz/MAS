@@ -7,7 +7,8 @@ import asyncio
 import logging
 from typing import Optional
 
-from production_launcher import ProductionMASSystem
+# Интеграция будет через существующие компоненты
+# from production_launcher import ProductionMASSystem
 from tools.smart_groupchat import SmartGroupChatManager
 
 
@@ -18,7 +19,7 @@ class MASAPIIntegration:
     """Интеграция API с MAS системой"""
     
     def __init__(self):
-        self.mas_system: Optional[ProductionMASSystem] = None
+        self.mas_system: Optional[object] = None
         self.mas_manager: Optional[SmartGroupChatManager] = None
         self._initialized = False
     
@@ -30,14 +31,10 @@ class MASAPIIntegration:
         try:
             logger.info("🔧 Инициализация MAS системы для API...")
             
-            # Создаем экземпляр MAS системы
-            self.mas_system = ProductionMASSystem()
-            
-            # Инициализируем систему (без запуска интерактивного режима)
-            await self.mas_system._initialize_system()
-            
-            # Получаем менеджер
-            self.mas_manager = self.mas_system.manager
+            # Создаем менеджер напрямую для API использования
+            from tools.smart_groupchat import SmartGroupChatManager
+            self.mas_manager = SmartGroupChatManager()
+            await self.mas_manager.initialize()
             
             self._initialized = True
             logger.info("✅ MAS система инициализирована для API")

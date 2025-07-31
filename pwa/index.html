@@ -3,437 +3,847 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Root-MAS PWA</title>
+    <title>Root-MAS - Multi-Agent System</title>
+    
+    <!-- PWA Meta Tags -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2563eb">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Root-MAS">
     
-    <!-- Tailwind CSS для красоты -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <style>
-        /* Кастомные стили */
-        .chat-message {
-            animation: slideIn 0.3s ease-out;
+        /* Кастомные стили для анимаций */
+        .thought-bubble {
+            transition: all 0.3s ease;
         }
         
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
+        .thought-bubble.animate-in {
+            animation: thoughtIn 0.5s ease-out;
         }
         
-        .loading {
-            border-top-color: #3498db;
-            animation: spin 1s ease-in-out infinite;
+        @keyframes thoughtIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
         }
         
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+        .agent-avatar {
+            transition: all 0.3s ease;
+            border: 3px solid transparent;
+        }
+        
+        .agent-avatar.active {
+            border-color: #3b82f6;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+            animation: pulse 2s infinite;
+        }
+        
+        .agent-avatar.thinking {
+            border-color: #f59e0b;
+            animation: thinking 1.5s infinite;
+        }
+        
+        @keyframes thinking {
+            0%, 100% { border-color: #f59e0b; }
+            50% { border-color: #fbbf24; }
+        }
+        
+        .message-flow-line {
+            stroke-dasharray: 5,5;
+            animation: dash 1s linear infinite;
+        }
+        
+        @keyframes dash {
+            to { stroke-dashoffset: -10; }
+        }
+        
+        .typing-indicator::after {
+            content: '...';
+            animation: typing 1.5s infinite;
+        }
+        
+        @keyframes typing {
+            0%, 33% { content: '.'; }
+            34%, 66% { content: '..'; }
+            67%, 100% { content: '...'; }
+        }
+        
+        /* Стили для визуализации потока */
+        .flow-stage {
+            transition: all 0.5s ease;
+        }
+        
+        .flow-stage.active {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+            transform: scale(1.05);
+        }
+        
+        .agent-network {
+            background: radial-gradient(circle at center, #f8fafc 0%, #e2e8f0 100%);
         }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="bg-gray-50 min-h-screen">
     <!-- Navigation -->
-    <nav class="bg-blue-600 text-white p-4 shadow-lg">
-        <div class="container mx-auto flex justify-between items-center">
-            <h1 class="text-xl font-bold">🤖 Root-MAS</h1>
-            <div class="flex space-x-4">
-                <button id="tab-chat" class="px-4 py-2 rounded bg-blue-700">💬 Чат</button>
-                <button id="tab-dashboard" class="px-4 py-2 rounded">📊 Dashboard</button>
-                <button id="tab-studio" class="px-4 py-2 rounded">🎬 Studio</button>
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <h1 class="text-xl font-bold text-blue-600">🤖 Root-MAS</h1>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button id="chatModeBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                        <i class="fas fa-comments mr-2"></i>Чат
+                    </button>
+                    <button id="visualizationModeBtn" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+                        <i class="fas fa-brain mr-2"></i>Визуализация
+                    </button>
+                    <button id="dashboardModeBtn" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                        <i class="fas fa-chart-line mr-2"></i>Дашборд
+                    </button>
+                    <button id="studioModeBtn" class="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700">
+                        <i class="fas fa-cogs mr-2"></i>Студия
+                    </button>
+                </div>
             </div>
         </div>
     </nav>
 
-    <!-- Chat Tab -->
-    <div id="chat-tab" class="container mx-auto p-4">
-        <div class="max-w-4xl mx-auto">
-            <!-- Chat Messages -->
-            <div id="chat-messages" class="bg-white rounded-lg shadow-lg p-4 h-96 overflow-y-auto mb-4">
-                <div class="text-gray-500 text-center">
-                    💬 Начните диалог с вашим AI помощником
-                </div>
+    <!-- Chat Mode -->
+    <div id="chatMode" class="max-w-4xl mx-auto p-6 hidden">
+        <div class="bg-white rounded-xl shadow-lg p-6">
+            <h2 class="text-2xl font-bold mb-6 text-gray-800">💬 Чат с MAS</h2>
+            
+            <div id="chatContainer" class="h-96 overflow-y-auto border rounded-lg p-4 mb-4 bg-gray-50">
+                <div class="text-gray-500 text-center">Начните разговор с вашей командой агентов...</div>
             </div>
             
-            <!-- Voice Controls -->
-            <div class="bg-white rounded-lg shadow-lg p-4 mb-4">
-                <div class="flex items-center space-x-4">
-                    <button id="voice-btn" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-full">
-                        🎤 Говорить
-                    </button>
-                    <div id="voice-status" class="text-gray-600">
-                        Нажмите для записи голосового сообщения
-                    </div>
-                </div>
+            <div class="flex gap-2">
+                <input type="text" id="messageInput" placeholder="Введите ваше сообщение..." 
+                       class="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <button id="sendMessageBtn" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+                <button id="voiceBtn" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                    <i class="fas fa-microphone"></i>
+                </button>
             </div>
+        </div>
+    </div>
+
+    <!-- Visualization Mode -->
+    <div id="visualizationMode" class="max-w-7xl mx-auto p-6">
+        <!-- Flow Stages -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <h2 class="text-2xl font-bold mb-6 text-gray-800">🧠 Мыслительный процесс MAS</h2>
             
-            <!-- Message Input -->
-            <div class="bg-white rounded-lg shadow-lg p-4">
+            <div class="flex justify-between items-center mb-6">
                 <div class="flex space-x-4">
-                    <input 
-                        type="text" 
-                        id="message-input" 
-                        placeholder="Напишите сообщение..."
-                        class="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500"
-                    >
-                    <button 
-                        id="send-btn" 
-                        class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg"
-                    >
-                        Отправить
-                    </button>
+                    <div id="stage-user_to_communicator" class="flow-stage px-4 py-2 rounded-lg bg-gray-200 text-gray-700">
+                        📨 Пользователь → Коммуникатор
+                    </div>
+                    <div id="stage-communicator_thinking" class="flow-stage px-4 py-2 rounded-lg bg-gray-200 text-gray-700">
+                        🤔 Анализ
+                    </div>
+                    <div id="stage-group_chat" class="flow-stage px-4 py-2 rounded-lg bg-gray-200 text-gray-700">
+                        👥 Групп-чат
+                    </div>
+                    <div id="stage-agent_processing" class="flow-stage px-4 py-2 rounded-lg bg-gray-200 text-gray-700">
+                        ⚡ Обработка
+                    </div>
+                    <div id="stage-response_generation" class="flow-stage px-4 py-2 rounded-lg bg-gray-200 text-gray-700">
+                        📝 Генерация ответа
+                    </div>
                 </div>
+                
+                <div id="flowTimer" class="text-lg font-mono text-gray-600">00:00</div>
+            </div>
+        </div>
+        
+        <!-- Agent Network Visualization -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <h3 class="text-xl font-semibold mb-4 text-gray-800">🕸️ Сеть агентов</h3>
+            
+            <div class="agent-network relative h-96 rounded-lg border">
+                <!-- Агенты будут размещены здесь через JavaScript -->
+                <div id="agentContainer" class="relative w-full h-full">
+                    <!-- SVG для связей между агентами -->
+                    <svg id="connectionSvg" class="absolute inset-0 w-full h-full pointer-events-none">
+                        <!-- Линии связей будут добавлены через JavaScript -->
+                    </svg>
+                    
+                    <!-- Агенты -->
+                    <div id="agentContainer" class="relative w-full h-full">
+                        <!-- Агенты будут добавлены через JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Current Flow Info -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <h3 class="text-xl font-semibold mb-4 text-gray-800">📋 Текущий поток</h3>
+            <div id="currentFlowInfo" class="text-gray-600">
+                Нет активного потока
+            </div>
+        </div>
+        
+        <!-- Thought Stream -->
+        <div class="bg-white rounded-xl shadow-lg p-6">
+            <h3 class="text-xl font-semibold mb-4 text-gray-800">💭 Поток мыслей</h3>
+            <div id="thoughtStream" class="space-y-4 max-h-64 overflow-y-auto">
+                <div class="text-gray-500 text-center py-8">
+                    Отправьте сообщение, чтобы увидеть мыслительный процесс агентов
+                </div>
+            </div>
+        </div>
+        
+        <!-- Message Input for Visualization -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mt-6">
+            <div class="flex gap-2">
+                <input type="text" id="visualizationMessageInput" 
+                       placeholder="Отправьте сообщение для визуализации процесса..." 
+                       class="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+                <button id="sendVisualizationBtn" class="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+                    <i class="fas fa-rocket mr-2"></i>Запустить
+                </button>
             </div>
         </div>
     </div>
 
-    <!-- Dashboard Tab -->
-    <div id="dashboard-tab" class="container mx-auto p-4 hidden">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <!-- Dashboard Mode -->
+    <div id="dashboardMode" class="max-w-7xl mx-auto p-6 hidden">
+        <!-- Dashboard content - existing content -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             <!-- System Status -->
-            <div class="bg-white rounded-lg shadow-lg p-6">
-                <h3 class="text-lg font-semibold mb-4">📊 Статус системы</h3>
-                <div id="system-metrics" class="space-y-2">
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h3 class="text-lg font-semibold mb-4 text-gray-800">📊 Статус системы</h3>
+                <div id="systemMetrics" class="space-y-2">
                     <div class="flex justify-between">
-                        <span>Uptime:</span>
-                        <span id="uptime">--</span>
+                        <span>Активные агенты:</span>
+                        <span id="activeAgents" class="font-semibold">-</span>
                     </div>
                     <div class="flex justify-between">
-                        <span>Сообщений:</span>
-                        <span id="total-messages">--</span>
+                        <span>Всего сообщений:</span>
+                        <span id="totalMessages" class="font-semibold">-</span>
                     </div>
                     <div class="flex justify-between">
-                        <span>Агентов активно:</span>
-                        <span id="active-agents">--</span>
+                        <span>Время работы:</span>
+                        <span id="uptime" class="font-semibold">-</span>
                     </div>
                 </div>
             </div>
             
-            <!-- Agents Status -->
-            <div class="bg-white rounded-lg shadow-lg p-6">
-                <h3 class="text-lg font-semibold mb-4">🤖 Агенты</h3>
-                <div id="agents-status" class="space-y-2">
-                    <!-- Агенты будут загружены через API -->
+            <!-- Memory Usage -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h3 class="text-lg font-semibold mb-4 text-gray-800">💾 Использование памяти</h3>
+                <div id="memoryInfo" class="text-center">
+                    <div class="text-3xl font-bold text-blue-600" id="memoryUsage">-</div>
+                    <div class="text-sm text-gray-600">Память</div>
                 </div>
             </div>
             
-            <!-- Recent Activity -->
-            <div class="bg-white rounded-lg shadow-lg p-6">
-                <h3 class="text-lg font-semibold mb-4">📝 Активность</h3>
-                <div id="recent-activity" class="space-y-2 text-sm">
-                    <!-- Активность будет загружена через API -->
+            <!-- CPU Usage -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h3 class="text-lg font-semibold mb-4 text-gray-800">⚡ Загрузка CPU</h3>
+                <div id="cpuInfo" class="text-center">
+                    <div class="text-3xl font-bold text-green-600" id="cpuUsage">-</div>
+                    <div class="text-sm text-gray-600">CPU</div>
                 </div>
+            </div>
+        </div>
+        
+        <!-- Agent Status -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <h3 class="text-lg font-semibold mb-4 text-gray-800">🤖 Статус агентов</h3>
+            <div id="agentStatus" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Agent cards will be populated here -->
             </div>
         </div>
     </div>
 
-    <!-- Studio Tab (iframe) -->
-    <div id="studio-tab" class="hidden">
-        <iframe 
-            id="studio-iframe"
-            src="http://localhost:8081" 
-            class="w-full h-screen border-0"
-            title="AutoGen Studio"
-        >
-        </iframe>
+    <!-- Studio Mode -->
+    <div id="studioMode" class="max-w-7xl mx-auto p-6 hidden">
+        <div class="bg-white rounded-xl shadow-lg p-6">
+            <h2 class="text-2xl font-bold mb-6 text-gray-800">🎬 AutoGen Studio</h2>
+            <div class="border rounded-lg overflow-hidden" style="height: 80vh;">
+                <iframe id="studioFrame" src="http://localhost:8081" 
+                        class="w-full h-full border-0">
+                </iframe>
+            </div>
+        </div>
     </div>
 
-    <!-- API Integration Script -->
     <script>
+        // Глобальные переменные
+        let currentMode = 'visualization';
+        let api = null;
+        let visualizationWs = null;
+        let currentFlow = null;
+        let flowStartTime = null;
+        let agentProfiles = [];
+        
+        // Инициализация при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            api = new RootMASAPI();
+            initializeVisualization();
+            initializeEventListeners();
+            loadAgentProfiles();
+            switchMode('visualization');
+        });
+        
+        // API класс
         class RootMASAPI {
             constructor(baseURL = 'http://localhost:8000') {
                 this.baseURL = baseURL;
-                this.websocket = null;
             }
             
-            // API методы
             async sendMessage(message, userId = 'pwa_user') {
-                try {
-                    const response = await fetch(`${this.baseURL}/api/v1/chat/message`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            message: message,
-                            user_id: userId,
-                            metadata: {
-                                source: 'pwa',
-                                timestamp: new Date().toISOString()
-                            }
-                        })
-                    });
-                    
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    
-                    return await response.json();
-                } catch (error) {
-                    console.error('Error sending message:', error);
-                    throw error;
-                }
+                const response = await fetch(`${this.baseURL}/api/v1/chat/message`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message, user_id: userId })
+                });
+                return await response.json();
+            }
+            
+            async getAgentProfiles() {
+                const response = await fetch(`${this.baseURL}/api/v1/agents/profiles`);
+                return await response.json();
             }
             
             async getSystemMetrics() {
-                try {
-                    const response = await fetch(`${this.baseURL}/api/v1/metrics/dashboard`);
-                    return await response.json();
-                } catch (error) {
-                    console.error('Error getting metrics:', error);
-                    return null;
-                }
+                const response = await fetch(`${this.baseURL}/api/v1/metrics/dashboard`);
+                return await response.json();
             }
             
-            async getAgentsStatus() {
-                try {
-                    const response = await fetch(`${this.baseURL}/api/v1/agents/status`);
-                    return await response.json();
-                } catch (error) {
-                    console.error('Error getting agents status:', error);
-                    return null;
-                }
-            }
-            
-            async getChatHistory(limit = 20) {
-                try {
-                    const response = await fetch(`${this.baseURL}/api/v1/chat/history?limit=${limit}`);
-                    return await response.json();
-                } catch (error) {
-                    console.error('Error getting chat history:', error);
-                    return null;
-                }
-            }
-            
-            // WebSocket для real-time
-            connectWebSocket() {
-                const wsURL = this.baseURL.replace('http', 'ws') + '/ws';
-                this.websocket = new WebSocket(wsURL);
-                
-                this.websocket.onopen = () => {
-                    console.log('WebSocket connected');
-                };
-                
-                this.websocket.onmessage = (event) => {
-                    const data = JSON.parse(event.data);
-                    this.handleWebSocketMessage(data);
-                };
-                
-                this.websocket.onclose = () => {
-                    console.log('WebSocket disconnected');
-                    // Переподключение через 5 секунд
-                    setTimeout(() => this.connectWebSocket(), 5000);
-                };
-            }
-            
-            handleWebSocketMessage(data) {
-                if (data.type === 'new_message') {
-                    // Обновляем чат в real-time
-                    this.displayMessage(data.data.response, 'agent');
-                }
-            }
-            
-            displayMessage(text, sender = 'user') {
-                const messagesDiv = document.getElementById('chat-messages');
-                const messageDiv = document.createElement('div');
-                messageDiv.className = `chat-message mb-4 ${sender === 'user' ? 'text-right' : 'text-left'}`;
-                
-                const bubble = document.createElement('div');
-                bubble.className = `inline-block px-4 py-2 rounded-lg max-w-xs lg:max-w-md ${
-                    sender === 'user' 
-                        ? 'bg-blue-500 text-white' 
-                        : 'bg-gray-200 text-gray-800'
-                }`;
-                bubble.textContent = text;
-                
-                const avatar = document.createElement('div');
-                avatar.className = 'text-sm text-gray-500 mt-1';
-                avatar.textContent = sender === 'user' ? '👤 Вы' : '🤖 Communicator';
-                
-                messageDiv.appendChild(bubble);
-                messageDiv.appendChild(avatar);
-                messagesDiv.appendChild(messageDiv);
-                
-                // Автоскролл
-                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            async getAgentStatus() {
+                const response = await fetch(`${this.baseURL}/api/v1/agents/status`);
+                return await response.json();
             }
         }
         
-        // Инициализация
-        const api = new RootMASAPI();
-        let isRecording = false;
-        let mediaRecorder = null;
-        
-        // Tabs management
-        function showTab(tabName) {
-            // Скрываем все табы
-            document.querySelectorAll('[id$="-tab"]').forEach(tab => {
-                tab.classList.add('hidden');
-            });
+        // Инициализация визуализации
+        function initializeVisualization() {
+            // Подключение к WebSocket для визуализации
+            visualizationWs = new WebSocket('ws://localhost:8000/ws/visualization');
             
-            // Показываем нужный таб
-            document.getElementById(tabName + '-tab').classList.remove('hidden');
+            visualizationWs.onopen = function() {
+                console.log('🔗 Подключен к WebSocket визуализации');
+                // Запрашиваем профили агентов
+                visualizationWs.send(JSON.stringify({type: 'get_agent_profiles'}));
+            };
             
-            // Обновляем кнопки
-            document.querySelectorAll('[id^="tab-"]').forEach(btn => {
-                btn.classList.remove('bg-blue-700');
-            });
-            document.getElementById('tab-' + tabName).classList.add('bg-blue-700');
+            visualizationWs.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                handleVisualizationEvent(data);
+            };
+            
+            visualizationWs.onerror = function(error) {
+                console.error('❌ Ошибка WebSocket:', error);
+            };
+            
+            visualizationWs.onclose = function() {
+                console.log('📡 WebSocket соединение закрыто');
+                // Пытаемся переподключиться через 5 секунд
+                setTimeout(initializeVisualization, 5000);
+            };
         }
         
-        // Event listeners
-        document.addEventListener('DOMContentLoaded', () => {
-            // Подключение WebSocket
-            api.connectWebSocket();
-            
-            // Загрузка истории чата
-            loadChatHistory();
-            
-            // Tabs
-            document.getElementById('tab-chat').addEventListener('click', () => showTab('chat'));
-            document.getElementById('tab-dashboard').addEventListener('click', () => {
-                showTab('dashboard');
-                loadDashboard();
-            });
-            document.getElementById('tab-studio').addEventListener('click', () => showTab('studio'));
-            
-            // Chat
-            document.getElementById('send-btn').addEventListener('click', sendMessage);
-            document.getElementById('message-input').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') sendMessage();
-            });
-            
-            // Voice
-            document.getElementById('voice-btn').addEventListener('click', toggleRecording);
-        });
+        // Загрузка профилей агентов
+        async function loadAgentProfiles() {
+            try {
+                agentProfiles = await api.getAgentProfiles();
+                renderAgentNetwork();
+            } catch (error) {
+                console.error('❌ Ошибка загрузки профилей агентов:', error);
+            }
+        }
         
-        async function sendMessage() {
-            const input = document.getElementById('message-input');
+        // Отрисовка сети агентов
+        function renderAgentNetwork() {
+            const container = document.getElementById('agentContainer');
+            const svg = document.getElementById('connectionSvg');
+            
+            // Очищаем контейнер
+            container.innerHTML = '';
+            svg.innerHTML = '';
+            
+            // Позиции агентов (круговое расположение)
+            const centerX = container.offsetWidth / 2;
+            const centerY = container.offsetHeight / 2;
+            const radius = Math.min(centerX, centerY) - 80;
+            
+            agentProfiles.forEach((agent, index) => {
+                const angle = (2 * Math.PI * index) / agentProfiles.length;
+                const x = centerX + radius * Math.cos(angle) - 40; // 40 = половина ширины аватара
+                const y = centerY + radius * Math.sin(angle) - 40;
+                
+                // Создаем элемент агента
+                const agentElement = document.createElement('div');
+                agentElement.id = `agent-${agent.agent_id}`;
+                agentElement.className = 'absolute w-20 h-20 cursor-pointer';
+                agentElement.style.left = x + 'px';
+                agentElement.style.top = y + 'px';
+                
+                agentElement.innerHTML = `
+                    <div class="agent-avatar w-full h-full rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-2xl font-bold shadow-lg relative">
+                        ${agent.name[0]}
+                        <div class="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-xs text-gray-700 font-medium whitespace-nowrap">
+                            ${agent.name}
+                        </div>
+                    </div>
+                `;
+                
+                // Добавляем обработчик клика
+                agentElement.addEventListener('click', () => showAgentDetails(agent));
+                
+                container.appendChild(agentElement);
+            });
+        }
+        
+        // Показать детали агента
+        function showAgentDetails(agent) {
+            alert(`
+🤖 ${agent.name}
+Роль: ${agent.role}
+Описание: ${agent.description}
+Навыки: ${agent.capabilities.join(', ')}
+            `);
+        }
+        
+        // Обработка событий визуализации
+        function handleVisualizationEvent(data) {
+            console.log('📡 Получено событие:', data);
+            
+            switch(data.event_type || data.type) {
+                case 'agent_profiles':
+                    agentProfiles = data.data;
+                    renderAgentNetwork();
+                    break;
+                    
+                case 'message_flow_start':
+                    startMessageFlowVisualization(data);
+                    break;
+                    
+                case 'agent_thought':
+                    addAgentThoughtVisualization(data);
+                    break;
+                    
+                case 'flow_stage_update':
+                    updateFlowStageVisualization(data);
+                    break;
+                    
+                case 'message_flow_complete':
+                    completeMessageFlowVisualization(data);
+                    break;
+            }
+        }
+        
+        // Начало визуализации потока сообщений
+        function startMessageFlowVisualization(data) {
+            currentFlow = data.flow_id;
+            flowStartTime = Date.now();
+            
+            // Обновляем информацию о текущем потоке
+            document.getElementById('currentFlowInfo').innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div>
+                        <div class="font-semibold">Поток: ${data.flow_id}</div>
+                        <div class="text-sm">Сообщение: "${data.data.user_message}"</div>
+                    </div>
+                    <div class="text-green-600 font-semibold">🟢 Активен</div>
+                </div>
+            `;
+            
+            // Очищаем поток мыслей
+            document.getElementById('thoughtStream').innerHTML = '';
+            
+            // Запускаем таймер
+            startFlowTimer();
+            
+            // Активируем первую стадию
+            updateFlowStage('user_to_communicator');
+        }
+        
+        // Добавление мысли агента в визуализацию
+        function addAgentThoughtVisualization(data) {
+            const thoughtData = data.data;
+            
+            // Добавляем мысль в поток
+            addThoughtBubble(thoughtData);
+            
+            // Активируем агента
+            activateAgent(thoughtData.agent_id, thoughtData.thought_type);
+            
+            // Добавляем связь между агентами, если есть target_agent
+            if (thoughtData.target_agent) {
+                showAgentConnection(thoughtData.agent_id, thoughtData.target_agent);
+            }
+        }
+        
+        // Обновление стадии потока
+        function updateFlowStageVisualization(data) {
+            updateFlowStage(data.data.new_stage);
+        }
+        
+        // Завершение визуализации потока
+        function completeMessageFlowVisualization(data) {
+            // Деактивируем все агенты
+            document.querySelectorAll('.agent-avatar').forEach(avatar => {
+                avatar.classList.remove('active', 'thinking');
+            });
+            
+            // Обновляем информацию о потоке
+            document.getElementById('currentFlowInfo').innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div>
+                        <div class="font-semibold">Поток завершен: ${currentFlow}</div>
+                        <div class="text-sm">Ответ: "${data.data.final_response.substring(0, 100)}..."</div>
+                        <div class="text-xs text-gray-500">Всего мыслей: ${data.data.total_thoughts}, Время: ${data.data.duration_ms}мс</div>
+                    </div>
+                    <div class="text-gray-600 font-semibold">⚪ Завершен</div>
+                </div>
+            `;
+            
+            // Сбрасываем стадии
+            document.querySelectorAll('.flow-stage').forEach(stage => {
+                stage.classList.remove('active');
+            });
+            
+            currentFlow = null;
+            flowStartTime = null;
+        }
+        
+        // Добавление пузыря мысли
+        function addThoughtBubble(thought) {
+            const thoughtStream = document.getElementById('thoughtStream');
+            
+            const thoughtElement = document.createElement('div');
+            thoughtElement.className = 'thought-bubble animate-in bg-gray-100 rounded-lg p-4 border-l-4';
+            
+            // Цвета для разных типов мыслей
+            const typeColors = {
+                'receiving': 'border-blue-500',
+                'thinking': 'border-yellow-500', 
+                'responding': 'border-green-500',
+                'forwarding': 'border-purple-500'
+            };
+            
+            const typeIcons = {
+                'receiving': '📨',
+                'thinking': '🤔',
+                'responding': '💬',
+                'forwarding': '🔄'
+            };
+            
+            thoughtElement.classList.add(typeColors[thought.thought_type] || 'border-gray-500');
+            
+            thoughtElement.innerHTML = `
+                <div class="flex items-start space-x-3">
+                    <div class="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-sm font-bold">
+                        ${thought.agent_name[0]}
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2 mb-1">
+                            <span class="font-semibold text-gray-800">${thought.agent_name}</span>
+                            <span class="text-sm text-gray-500">${typeIcons[thought.thought_type]} ${thought.thought_type}</span>
+                            <span class="text-xs text-gray-400">${new Date(thought.timestamp * 1000).toLocaleTimeString()}</span>
+                        </div>
+                        <div class="text-gray-700">${thought.message}</div>
+                        ${thought.target_agent ? `<div class="text-sm text-purple-600 mt-1">→ ${thought.target_agent}</div>` : ''}
+                    </div>
+                </div>
+            `;
+            
+            thoughtStream.appendChild(thoughtElement);
+            
+            // Прокручиваем к новому элементу
+            thoughtElement.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }
+        
+        // Активация агента
+        function activateAgent(agentId, thoughtType) {
+            // Сначала деактивируем всех
+            document.querySelectorAll('.agent-avatar').forEach(avatar => {
+                avatar.classList.remove('active', 'thinking');
+            });
+            
+            // Активируем нужного агента
+            const agentElement = document.getElementById(`agent-${agentId}`);
+            if (agentElement) {
+                const avatar = agentElement.querySelector('.agent-avatar');
+                if (thoughtType === 'thinking') {
+                    avatar.classList.add('thinking');
+                } else {
+                    avatar.classList.add('active');
+                }
+            }
+        }
+        
+        // Показ связи между агентами
+        function showAgentConnection(fromAgentId, toAgentId) {
+            const fromElement = document.getElementById(`agent-${fromAgentId}`);
+            const toElement = document.getElementById(`agent-${toAgentId}`);
+            
+            if (fromElement && toElement) {
+                const svg = document.getElementById('connectionSvg');
+                
+                // Получаем центры элементов
+                const fromRect = fromElement.getBoundingClientRect();
+                const toRect = toElement.getBoundingClientRect();
+                const containerRect = svg.getBoundingClientRect();
+                
+                const fromX = fromRect.left - containerRect.left + fromRect.width / 2;
+                const fromY = fromRect.top - containerRect.top + fromRect.height / 2;
+                const toX = toRect.left - containerRect.left + toRect.width / 2;
+                const toY = toRect.top - containerRect.top + toRect.height / 2;
+                
+                // Создаем линию
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', fromX);
+                line.setAttribute('y1', fromY);
+                line.setAttribute('x2', toX);
+                line.setAttribute('y2', toY);
+                line.setAttribute('stroke', '#3b82f6');
+                line.setAttribute('stroke-width', '2');
+                line.classList.add('message-flow-line');
+                
+                svg.appendChild(line);
+                
+                // Удаляем линию через 2 секунды
+                setTimeout(() => {
+                    if (line.parentNode) {
+                        line.parentNode.removeChild(line);
+                    }
+                }, 2000);
+            }
+        }
+        
+        // Обновление стадии потока
+        function updateFlowStage(stageName) {
+            document.querySelectorAll('.flow-stage').forEach(stage => {
+                stage.classList.remove('active');
+            });
+            
+            const stageElement = document.getElementById(`stage-${stageName}`);
+            if (stageElement) {
+                stageElement.classList.add('active');
+            }
+        }
+        
+        // Таймер потока
+        function startFlowTimer() {
+            const updateTimer = () => {
+                if (flowStartTime) {
+                    const elapsed = Date.now() - flowStartTime;
+                    const minutes = Math.floor(elapsed / 60000);
+                    const seconds = Math.floor((elapsed % 60000) / 1000);
+                    document.getElementById('flowTimer').textContent = 
+                        `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                    
+                    if (currentFlow) {
+                        setTimeout(updateTimer, 1000);
+                    }
+                }
+            };
+            updateTimer();
+        }
+        
+        // Инициализация обработчиков событий
+        function initializeEventListeners() {
+            // Кнопки режимов
+            document.getElementById('chatModeBtn').addEventListener('click', () => switchMode('chat'));
+            document.getElementById('visualizationModeBtn').addEventListener('click', () => switchMode('visualization'));
+            document.getElementById('dashboardModeBtn').addEventListener('click', () => switchMode('dashboard'));
+            document.getElementById('studioModeBtn').addEventListener('click', () => switchMode('studio'));
+            
+            // Отправка сообщения в режиме визуализации
+            document.getElementById('sendVisualizationBtn').addEventListener('click', sendVisualizationMessage);
+            document.getElementById('visualizationMessageInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendVisualizationMessage();
+                }
+            });
+            
+            // Обычный чат
+            document.getElementById('sendMessageBtn').addEventListener('click', sendChatMessage);
+            document.getElementById('messageInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendChatMessage();
+                }
+            });
+        }
+        
+        // Отправка сообщения для визуализации
+        async function sendVisualizationMessage() {
+            const input = document.getElementById('visualizationMessageInput');
             const message = input.value.trim();
             
             if (!message) return;
             
-            // Показываем сообщение пользователя
-            api.displayMessage(message, 'user');
-            input.value = '';
+            try {
+                input.value = '';
+                input.disabled = true;
+                document.getElementById('sendVisualizationBtn').disabled = true;
+                
+                // Отправляем сообщение
+                await api.sendMessage(message);
+                
+            } catch (error) {
+                console.error('❌ Ошибка отправки сообщения:', error);
+                alert('Ошибка отправки сообщения: ' + error.message);
+            } finally {
+                input.disabled = false;
+                document.getElementById('sendVisualizationBtn').disabled = false;
+            }
+        }
+        
+        // Отправка обычного сообщения в чат
+        async function sendChatMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
             
-            // Показываем индикатор загрузки
-            const loadingDiv = document.createElement('div');
-            loadingDiv.className = 'text-center text-gray-500';
-            loadingDiv.innerHTML = '<div class="loading w-6 h-6 border-4 border-gray-200 rounded-full mx-auto"></div>';
-            document.getElementById('chat-messages').appendChild(loadingDiv);
+            if (!message) return;
             
             try {
-                // Отправляем в API
+                input.value = '';
+                
+                // Добавляем сообщение пользователя в чат
+                addMessageToChat(message, 'user');
+                
+                // Отправляем сообщение
                 const response = await api.sendMessage(message);
                 
-                // Удаляем индикатор загрузки
-                loadingDiv.remove();
-                
-                // Показываем ответ агента (если не пришел через WebSocket)
-                if (response.response) {
-                    api.displayMessage(response.response, 'agent');
-                }
+                // Добавляем ответ в чат
+                addMessageToChat(response.response, 'agent');
                 
             } catch (error) {
-                loadingDiv.remove();
-                api.displayMessage('❌ Ошибка: ' + error.message, 'system');
+                console.error('❌ Ошибка отправки сообщения:', error);
+                addMessageToChat('Ошибка: ' + error.message, 'error');
             }
         }
         
-        async function loadChatHistory() {
-            try {
-                const history = await api.getChatHistory(10);
-                if (history && history.messages) {
-                    history.messages.forEach(msg => {
-                        api.displayMessage(msg.user_message, 'user');
-                        api.displayMessage(msg.agent_response, 'agent');
-                    });
-                }
-            } catch (error) {
-                console.error('Error loading chat history:', error);
-            }
-        }
-        
-        async function loadDashboard() {
-            try {
-                // Системные метрики
-                const metrics = await api.getSystemMetrics();
-                if (metrics) {
-                    document.getElementById('uptime').textContent = metrics.uptime || '--';
-                    document.getElementById('total-messages').textContent = metrics.total_messages || '0';
-                    document.getElementById('active-agents').textContent = metrics.active_agents || '0';
-                }
-                
-                // Статус агентов
-                const agents = await api.getAgentsStatus();
-                if (agents && agents.agents) {
-                    const agentsDiv = document.getElementById('agents-status');
-                    agentsDiv.innerHTML = '';
-                    
-                    agents.agents.forEach(agent => {
-                        const agentDiv = document.createElement('div');
-                        agentDiv.className = 'flex justify-between items-center';
-                        agentDiv.innerHTML = `
-                            <span>${agent.name}</span>
-                            <span class="text-sm ${agent.status === 'active' ? 'text-green-500' : 'text-gray-500'}">
-                                ${agent.status === 'active' ? '🟢' : '🔴'} ${agent.status}
-                            </span>
-                        `;
-                        agentsDiv.appendChild(agentDiv);
-                    });
-                }
-                
-            } catch (error) {
-                console.error('Error loading dashboard:', error);
-            }
-        }
-        
-        // Voice Recording (заглушка)
-        async function toggleRecording() {
-            const btn = document.getElementById('voice-btn');
-            const status = document.getElementById('voice-status');
+        // Добавление сообщения в чат
+        function addMessageToChat(message, sender) {
+            const chatContainer = document.getElementById('chatContainer');
             
-            if (!isRecording) {
-                // Начинаем запись
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    mediaRecorder = new MediaRecorder(stream);
-                    
-                    btn.textContent = '⏹️ Остановить';
-                    btn.className = 'bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-full';
-                    status.textContent = '🎤 Идет запись...';
-                    
-                    mediaRecorder.start();
-                    isRecording = true;
-                    
-                    mediaRecorder.ondataavailable = (event) => {
-                        // Здесь будет обработка аудио и отправка в Speech-to-Text
-                        console.log('Audio data available:', event.data);
-                    };
-                    
-                } catch (error) {
-                    console.error('Microphone access denied:', error);
-                    status.textContent = '❌ Нет доступа к микрофону';
-                }
-            } else {
-                // Останавливаем запись
-                mediaRecorder.stop();
-                mediaRecorder.stream.getTracks().forEach(track => track.stop());
-                
-                btn.textContent = '🎤 Говорить';
-                btn.className = 'bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-full';
-                status.textContent = 'Обрабатываем голосовое сообщение...';
-                
-                isRecording = false;
-                
-                // Заглушка - показываем что голос "распознан"
-                setTimeout(() => {
-                    status.textContent = 'Голос распознан (пока не работает)';
-                    setTimeout(() => {
-                        status.textContent = 'Нажмите для записи голосового сообщения';
-                    }, 2000);
-                }, 1000);
+            const messageElement = document.createElement('div');
+            messageElement.className = `mb-4 ${sender === 'user' ? 'text-right' : 'text-left'}`;
+            
+            const bubbleClass = sender === 'user' ? 'bg-blue-600 text-white' : 
+                               sender === 'error' ? 'bg-red-100 text-red-800' : 'bg-gray-200 text-gray-800';
+            
+            messageElement.innerHTML = `
+                <div class="inline-block max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${bubbleClass}">
+                    ${message}
+                </div>
+                <div class="text-xs text-gray-500 mt-1">
+                    ${new Date().toLocaleTimeString()}
+                </div>
+            `;
+            
+            // Очищаем приветственное сообщение
+            if (chatContainer.children.length === 1 && chatContainer.firstChild.textContent.includes('Начните разговор')) {
+                chatContainer.innerHTML = '';
             }
+            
+            chatContainer.appendChild(messageElement);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        
+        // Переключение режимов
+        function switchMode(mode) {
+            // Скрываем все режимы
+            document.getElementById('chatMode').classList.add('hidden');
+            document.getElementById('visualizationMode').classList.add('hidden');
+            document.getElementById('dashboardMode').classList.add('hidden');
+            document.getElementById('studioMode').classList.add('hidden');
+            
+            // Сбрасываем активные кнопки
+            document.querySelectorAll('nav button').forEach(btn => {
+                btn.classList.remove('ring-2', 'ring-white');
+            });
+            
+            // Показываем выбранный режим
+            switch(mode) {
+                case 'chat':
+                    document.getElementById('chatMode').classList.remove('hidden');
+                    document.getElementById('chatModeBtn').classList.add('ring-2', 'ring-white');
+                    break;
+                case 'visualization':
+                    document.getElementById('visualizationMode').classList.remove('hidden');
+                    document.getElementById('visualizationModeBtn').classList.add('ring-2', 'ring-white');
+                    break;
+                case 'dashboard':
+                    document.getElementById('dashboardMode').classList.remove('hidden');
+                    document.getElementById('dashboardModeBtn').classList.add('ring-2', 'ring-white');
+                    loadDashboardData();
+                    break;
+                case 'studio':
+                    document.getElementById('studioMode').classList.remove('hidden');
+                    document.getElementById('studioModeBtn').classList.add('ring-2', 'ring-white');
+                    break;
+            }
+            
+            currentMode = mode;
+        }
+        
+        // Загрузка данных дашборда
+        async function loadDashboardData() {
+            try {
+                const [metrics, agentStatus] = await Promise.all([
+                    api.getSystemMetrics(),
+                    api.getAgentStatus()
+                ]);
+                
+                // Обновляем метрики
+                document.getElementById('activeAgents').textContent = metrics.active_agents || 0;
+                document.getElementById('totalMessages').textContent = metrics.total_messages || 0;
+                document.getElementById('uptime').textContent = metrics.uptime || 'N/A';
+                document.getElementById('memoryUsage').textContent = metrics.memory_usage || 'N/A';
+                document.getElementById('cpuUsage').textContent = (metrics.cpu_usage || 0) + '%';
+                
+                // Обновляем статус агентов
+                const agentStatusContainer = document.getElementById('agentStatus');
+                agentStatusContainer.innerHTML = '';
+                
+                agentStatus.forEach(agent => {
+                    const agentCard = document.createElement('div');
+                    agentCard.className = 'bg-gray-50 rounded-lg p-4';
+                    agentCard.innerHTML = `
+                        <h4 class="font-semibold">${agent.name}</h4>
+                        <p class="text-sm text-gray-600">${agent.status}</p>
+                        <p class="text-xs text-gray-500">Сообщений: ${agent.message_count}</p>
+                    `;
+                    agentStatusContainer.appendChild(agentCard);
+                });
+                
+            } catch (error) {
+                console.error('❌ Ошибка загрузки данных дашборда:', error);
+            }
+        }
+        
+        // Регистрация Service Worker для PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js')
+                .then(registration => console.log('✅ SW зарегистрирован'))
+                .catch(error => console.log('❌ Ошибка регистрации SW:', error));
         }
     </script>
 </body>

@@ -10,9 +10,10 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Depends
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 # Импорты MAS системы
@@ -31,8 +32,9 @@ class ChatMessage(BaseModel):
 
 class ChatResponse(BaseModel):
     response: str
-    timestamp: datetime
+    timestamp: float
     agent: Optional[str] = None
+    flow_id: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = {}
 
 
@@ -58,6 +60,149 @@ class ProjectInfo(BaseModel):
     status: str
     created_at: datetime
     updated_at: datetime
+
+
+# Новые модели для визуализации мыслительного процесса
+class AgentThought(BaseModel):
+    agent_id: str
+    agent_name: str
+    message: str
+    thought_type: str  # "receiving", "thinking", "responding", "forwarding"
+    timestamp: float
+    duration_ms: Optional[int] = None
+    target_agent: Optional[str] = None
+
+class AgentProfile(BaseModel):
+    agent_id: str
+    name: str
+    role: str
+    avatar_url: str
+    description: str
+    capabilities: List[str]
+
+class MessageFlow(BaseModel):
+    flow_id: str
+    user_message: str
+    current_agent: str
+    flow_stage: str  # "user_to_communicator", "communicator_thinking", "group_chat", "agent_processing", "response_generation"
+    thoughts: List[AgentThought]
+    timestamp: float
+
+class ThoughtVisualizationEvent(BaseModel):
+    event_type: str  # "thought_start", "thought_update", "thought_complete", "message_flow"
+    flow_id: str
+    data: Dict[str, Any]
+
+# Менеджер WebSocket подключений для визуализации
+class VisualizationWebSocketManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+        self.message_flows: Dict[str, MessageFlow] = {}
+    
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+        
+    def disconnect(self, websocket: WebSocket):
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+    
+    async def broadcast_thought_event(self, event: ThoughtVisualizationEvent):
+        """Отправка события мыслительного процесса всем подключенным клиентам"""
+        if self.active_connections:
+            event_data = event.dict()
+            logger.info(f"🧠 Broadcasting thought event: {event.event_type} for flow {event.flow_id}")
+            
+            disconnected = []
+            for connection in self.active_connections:
+                try:
+                    await connection.send_text(json.dumps(event_data))
+                except Exception as e:
+                    logger.error(f"❌ Ошибка отправки WebSocket: {e}")
+                    disconnected.append(connection)
+            
+            # Удаляем отключенные соединения
+            for conn in disconnected:
+                self.disconnect(conn)
+    
+    async def start_message_flow(self, user_message: str, user_id: str) -> str:
+        """Начало нового потока обработки сообщения"""
+        flow_id = f"flow_{int(time.time() * 1000)}_{user_id}"
+        
+        message_flow = MessageFlow(
+            flow_id=flow_id,
+            user_message=user_message,
+            current_agent="communicator",
+            flow_stage="user_to_communicator",
+            thoughts=[],
+            timestamp=time.time()
+        )
+        
+        self.message_flows[flow_id] = message_flow
+        
+        # Отправляем событие начала потока
+        await self.broadcast_thought_event(ThoughtVisualizationEvent(
+            event_type="message_flow_start",
+            flow_id=flow_id,
+            data={
+                "user_message": user_message,
+                "user_id": user_id,
+                "timestamp": time.time()
+            }
+        ))
+        
+        return flow_id
+    
+    async def add_agent_thought(self, flow_id: str, thought: AgentThought):
+        """Добавление мысли агента в поток"""
+        if flow_id in self.message_flows:
+            self.message_flows[flow_id].thoughts.append(thought)
+            self.message_flows[flow_id].current_agent = thought.agent_id
+            
+            # Отправляем событие новой мысли
+            await self.broadcast_thought_event(ThoughtVisualizationEvent(
+                event_type="agent_thought",
+                flow_id=flow_id,
+                data=thought.dict()
+            ))
+    
+    async def update_flow_stage(self, flow_id: str, new_stage: str, current_agent: str = None):
+        """Обновление стадии обработки потока"""
+        if flow_id in self.message_flows:
+            self.message_flows[flow_id].flow_stage = new_stage
+            if current_agent:
+                self.message_flows[flow_id].current_agent = current_agent
+            
+            await self.broadcast_thought_event(ThoughtVisualizationEvent(
+                event_type="flow_stage_update",
+                flow_id=flow_id,
+                data={
+                    "new_stage": new_stage,
+                    "current_agent": current_agent
+                }
+            ))
+    
+    async def complete_message_flow(self, flow_id: str, final_response: str):
+        """Завершение потока обработки сообщения"""
+        if flow_id in self.message_flows:
+            await self.broadcast_thought_event(ThoughtVisualizationEvent(
+                event_type="message_flow_complete",
+                flow_id=flow_id,
+                data={
+                    "final_response": final_response,
+                    "total_thoughts": len(self.message_flows[flow_id].thoughts),
+                    "duration_ms": int((time.time() - self.message_flows[flow_id].timestamp) * 1000)
+                }
+            ))
+            
+            # Очищаем старые потоки (оставляем только последние 10)
+            if len(self.message_flows) > 10:
+                oldest_flow = min(self.message_flows.keys(), 
+                                key=lambda k: self.message_flows[k].timestamp)
+                del self.message_flows[oldest_flow]
+
+# Глобальный менеджер визуализации
+visualization_manager = VisualizationWebSocketManager()
 
 
 # Global state
@@ -268,49 +413,222 @@ async def voice_chat(audio_file: bytes, user_id: str = "voice_user"):
 # CHAT API - для диалога с Communicator Agent
 # =============================================================================
 
+# Профили агентов (можно вынести в отдельный конфиг)
+AGENT_PROFILES = [
+    AgentProfile(
+        agent_id="communicator",
+        name="Коммуникатор",
+        role="Интерфейс пользователя",
+        avatar_url="/static/avatars/communicator.png",
+        description="Принимает сообщения пользователей и координирует ответы",
+        capabilities=["Обработка голоса", "Перевод", "Форматирование"]
+    ),
+    AgentProfile(
+        agent_id="meta_agent",
+        name="Мета-Агент",
+        role="Координатор команды",
+        avatar_url="/static/avatars/meta_agent.png", 
+        description="Анализирует задачи и распределяет их между специалистами",
+        capabilities=["Планирование", "Координация", "Принятие решений"]
+    ),
+    AgentProfile(
+        agent_id="data_analyst",
+        name="Аналитик Данных",
+        role="Специалист по данным",
+        avatar_url="/static/avatars/data_analyst.png",
+        description="Анализирует данные и создает инсайты",
+        capabilities=["Анализ данных", "Статистика", "Визуализация"]
+    ),
+    AgentProfile(
+        agent_id="researcher",
+        name="Исследователь",
+        role="Поиск информации",
+        avatar_url="/static/avatars/researcher.png",
+        description="Ищет и верифицирует информацию",
+        capabilities=["Веб-поиск", "Проверка фактов", "Исследования"]
+    ),
+    AgentProfile(
+        agent_id="creative_writer",
+        name="Креативщик",
+        role="Создание контента",
+        avatar_url="/static/avatars/creative_writer.png",
+        description="Создает креативный и привлекательный контент",
+        capabilities=["Копирайтинг", "Сторителлинг", "Креатив"]
+    )
+]
+
 @app.post("/api/v1/chat/message", response_model=ChatResponse)
-async def send_message(
-    chat_msg: ChatMessage,
-    mas_manager = Depends(get_mas_manager)
-):
-    """Отправка сообщения в MAS через Communicator Agent"""
+async def send_message_with_visualization(message: ChatMessage):
+    """Отправка сообщения с визуализацией мыслительного процесса"""
     try:
-        logger.info(f"📨 Получено сообщение: {chat_msg.message[:100]}...")
-        
-        # Обработка через MAS
-        if mas_manager:
-            response = await mas_manager.process_user_message(chat_msg.message)
-        else:
-            # Заглушка пока MAS не инициализирован
-            response = f"Echo: {chat_msg.message}"
-        
-        # Создаем ответ
-        chat_response = ChatResponse(
-            response=response,
-            timestamp=datetime.now(),
-            agent="communicator",
-            metadata={"user_id": chat_msg.user_id}
+        # Начинаем новый поток визуализации
+        flow_id = await visualization_manager.start_message_flow(
+            message.message, message.user_id
         )
         
-        # Сохраняем в историю
-        api_state.message_history.append({
-            "timestamp": chat_response.timestamp,
-            "user_message": chat_msg.message,
-            "agent_response": response,
-            "user_id": chat_msg.user_id
-        })
+        # Симуляция мыслительного процесса (позже заменить на реальную интеграцию)
+        await simulate_agent_thinking(flow_id, message.message)
         
-        # Уведомляем WebSocket клиентов
-        await broadcast_to_websockets({
-            "type": "new_message",
-            "data": chat_response.dict()
-        })
+        # Обрабатываем сообщение через MAS
+        response_text = await mas_integration.process_message(message.message, message.user_id)
         
-        return chat_response
+        # Завершаем поток визуализации
+        await visualization_manager.complete_message_flow(flow_id, response_text)
         
+        return ChatResponse(
+            response=response_text,
+            agent="communicator",
+            timestamp=time.time(),
+            flow_id=flow_id
+        )
     except Exception as e:
         logger.error(f"❌ Ошибка обработки сообщения: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# Функция симуляции мыслительного процесса (временная)
+async def simulate_agent_thinking(flow_id: str, user_message: str):
+    """Симуляция мыслительного процесса агентов для демонстрации"""
+    
+    # 1. Сообщение попадает к коммуникатору
+    await visualization_manager.add_agent_thought(flow_id, AgentThought(
+        agent_id="communicator",
+        agent_name="Коммуникатор", 
+        message=f"Получено сообщение: '{user_message}'",
+        thought_type="receiving",
+        timestamp=time.time()
+    ))
+    
+    await asyncio.sleep(0.5)
+    
+    # 2. Коммуникатор думает
+    await visualization_manager.add_agent_thought(flow_id, AgentThought(
+        agent_id="communicator",
+        agent_name="Коммуникатор",
+        message="Анализирую сообщение и определяю, нужно ли обращаться к группе агентов...",
+        thought_type="thinking", 
+        timestamp=time.time()
+    ))
+    
+    await asyncio.sleep(1.0)
+    
+    # 3. Коммуникатор передает в групп-чат
+    await visualization_manager.update_flow_stage(flow_id, "group_chat", "meta_agent")
+    await visualization_manager.add_agent_thought(flow_id, AgentThought(
+        agent_id="communicator", 
+        agent_name="Коммуникатор",
+        message="Передаю сообщение мета-агенту для распределения задач",
+        thought_type="forwarding",
+        timestamp=time.time(),
+        target_agent="meta_agent"
+    ))
+    
+    await asyncio.sleep(0.5)
+    
+    # 4. Мета-агент получает и анализирует
+    await visualization_manager.add_agent_thought(flow_id, AgentThought(
+        agent_id="meta_agent",
+        agent_name="Мета-Агент",
+        message="Получил задачу от коммуникатора. Анализирую сложность...",
+        thought_type="receiving", 
+        timestamp=time.time()
+    ))
+    
+    await asyncio.sleep(1.0)
+    
+    await visualization_manager.add_agent_thought(flow_id, AgentThought(
+        agent_id="meta_agent",
+        agent_name="Мета-Агент", 
+        message="Определяю, какие агенты должны участвовать в решении задачи",
+        thought_type="thinking",
+        timestamp=time.time()
+    ))
+    
+    await asyncio.sleep(1.5)
+    
+    # 5. Мета-агент распределяет задачи
+    await visualization_manager.update_flow_stage(flow_id, "agent_processing")
+    
+    selected_agents = ["researcher", "data_analyst", "creative_writer"]
+    for agent_id in selected_agents:
+        agent_name = next(p.name for p in AGENT_PROFILES if p.agent_id == agent_id)
+        
+        await visualization_manager.add_agent_thought(flow_id, AgentThought(
+            agent_id="meta_agent",
+            agent_name="Мета-Агент",
+            message=f"Направляю задачу агенту '{agent_name}'",
+            thought_type="forwarding",
+            timestamp=time.time(),
+            target_agent=agent_id
+        ))
+        
+        await asyncio.sleep(0.3)
+        
+        # Агент получает и обрабатывает
+        await visualization_manager.add_agent_thought(flow_id, AgentThought(
+            agent_id=agent_id,
+            agent_name=agent_name,
+            message=f"Получил задачу от мета-агента. Начинаю обработку...",
+            thought_type="receiving",
+            timestamp=time.time()
+        ))
+        
+        await asyncio.sleep(0.8)
+        
+        await visualization_manager.add_agent_thought(flow_id, AgentThought(
+            agent_id=agent_id,
+            agent_name=agent_name,
+            message=f"Выполняю анализ с использованием моих навыков...",
+            thought_type="thinking",
+            timestamp=time.time()
+        ))
+        
+        await asyncio.sleep(1.2)
+        
+        await visualization_manager.add_agent_thought(flow_id, AgentThought(
+            agent_id=agent_id,
+            agent_name=agent_name,
+            message="Подготовил ответ и отправляю мета-агенту",
+            thought_type="responding",
+            timestamp=time.time(),
+            target_agent="meta_agent"
+        ))
+    
+    await asyncio.sleep(1.0)
+    
+    # 6. Мета-агент собирает ответы
+    await visualization_manager.update_flow_stage(flow_id, "response_generation", "meta_agent")
+    await visualization_manager.add_agent_thought(flow_id, AgentThought(
+        agent_id="meta_agent",
+        agent_name="Мета-Агент",
+        message="Получил ответы от всех агентов. Синтезирую финальный ответ...",
+        thought_type="thinking",
+        timestamp=time.time()
+    ))
+    
+    await asyncio.sleep(1.5)
+    
+    # 7. Мета-агент отправляет коммуникатору
+    await visualization_manager.add_agent_thought(flow_id, AgentThought(
+        agent_id="meta_agent",
+        agent_name="Мета-Агент", 
+        message="Отправляю сводный ответ коммуникатору",
+        thought_type="responding",
+        timestamp=time.time(),
+        target_agent="communicator"
+    ))
+    
+    await asyncio.sleep(0.5)
+    
+    # 8. Коммуникатор финализирует ответ
+    await visualization_manager.add_agent_thought(flow_id, AgentThought(
+        agent_id="communicator",
+        agent_name="Коммуникатор",
+        message="Получил ответ от команды. Форматирую для пользователя...",
+        thought_type="thinking", 
+        timestamp=time.time()
+    ))
+    
+    await asyncio.sleep(0.8)
 
 
 @app.get("/api/v1/chat/history")
@@ -501,6 +819,39 @@ async def get_studio_logs():
     except Exception as e:
         logger.error(f"❌ Ошибка получения Studio логов: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# Новые endpoints для визуализации мыслительного процесса
+
+@app.get("/api/v1/agents/profiles", response_model=List[AgentProfile])
+async def get_agent_profiles():
+    """Получение профилей всех агентов"""
+    return AGENT_PROFILES
+
+@app.get("/api/v1/visualization/flows")
+async def get_active_flows():
+    """Получение активных потоков обработки сообщений"""
+    return list(visualization_manager.message_flows.values())
+
+@app.websocket("/ws/visualization")
+async def visualization_websocket(websocket: WebSocket):
+    """WebSocket для визуализации мыслительного процесса"""
+    await visualization_manager.connect(websocket)
+    try:
+        while True:
+            # Ожидаем сообщений от клиента (ping/pong, настройки и т.д.)
+            data = await websocket.receive_text()
+            message = json.loads(data)
+            
+            if message.get("type") == "ping":
+                await websocket.send_text(json.dumps({"type": "pong"}))
+            elif message.get("type") == "get_agent_profiles":
+                await websocket.send_text(json.dumps({
+                    "type": "agent_profiles", 
+                    "data": [profile.dict() for profile in AGENT_PROFILES]
+                }))
+    except WebSocketDisconnect:
+        visualization_manager.disconnect(websocket)
 
 
 if __name__ == "__main__":
