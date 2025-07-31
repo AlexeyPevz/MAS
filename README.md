@@ -62,7 +62,7 @@ The high-level message flow is visualised below (see [`docs/architecture.mmd`](d
    - PostgreSQL, Redis, ChromaDB running
    - Prometheus metrics on port 9000
    - Telegram bot (if configured)
-   - Interactive PWA interface ready
+   - Interactive PWA interface on http://localhost:8000/app
 
 ### Quick Commands
 
