@@ -60,6 +60,8 @@ The high-level message flow is visualised below (see [`docs/architecture.mmd`](d
    - All 12 agents initialized
    - PostgreSQL, Redis, ChromaDB running
    - Prometheus metrics on port 9000
+   - RESTful API server on port 8080
+   - Telegram bot integration (if configured)
    - Interactive interface ready
 
 ### Quick Commands
@@ -131,13 +133,32 @@ Several demos under [`examples/`](examples) showcase common flows:
 
 Explore these scripts to understand how the helper modules in `tools/` are intended to work.
 
+## 🏗️ Production Ready Components
+
+### ✅ Fully Implemented
+- **Multi-Agent System Core**: 12 specialized agents with defined roles
+- **Smart GroupChat**: Intelligent message routing between agents
+- **RESTful API Server**: Complete API for external integrations
+- **Telegram Bot**: Modern bot with commands, statistics, and voice support
+- **LLM Cascade**: Cost-optimized model selection with fallbacks
+- **Budget Management**: Daily spending limits and tracking
+- **Prometheus Metrics**: Observability and monitoring
+- **Docker Support**: Production-ready containerization
+
+### 🚧 In Development
+- Yandex SpeechKit integration (STT/TTS)
+- n8n workflow automation
+- GPT-Pilot web app generation
+- AutoGen Studio visualization
+
 ## Development notes
 
-* Many modules are placeholders and should be expanded during future sprints.
-* The model cascade in `config/llm_tiers.yaml` lists LLMs in order of cost.  Adjust it for your providers.
-* Additional design documents are available in [`docs/`](docs). See
-  [`docs/usage.md`](docs/usage.md) for usage examples and
-  [`docs/api.md`](docs/api.md) for an overview of available modules.
+* The model cascade in `config/llm_tiers.yaml` lists LLMs in order of cost. Adjust it for your providers.
+* Additional design documents are available in [`docs/`](docs). See:
+  - [`docs/usage.md`](docs/usage.md) for usage examples
+  - [`docs/api.md`](docs/api.md) for API documentation
+  - [`docs/architecture.md`](docs/architecture.md) for system architecture
+  - [`docs/mas_goals_examples.md`](docs/mas_goals_examples.md) for MAS goal examples
 
 ## Approval process for critical changes
 

@@ -10,6 +10,13 @@ import logging
 from pathlib import Path
 from typing import Dict, Any
 
+# Опциональный импорт для API сервера
+try:
+    from aiohttp import web
+    AIOHTTP_AVAILABLE = True
+except ImportError:
+    AIOHTTP_AVAILABLE = False
+
 # Настройка путей
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -217,12 +224,36 @@ async def start_telegram_bot(manager):
 
 
 async def start_web_interface(manager):
-    """Запуск веб-интерфейса"""
+    """Запуск веб-интерфейса и API сервера"""
     try:
-        # Здесь будет веб-интерфейс для управления
-        logger.info("🌐 Веб-интерфейс будет запущен в следующей версии")
+        # Запускаем API сервер
+        from tools.api_server import MASAPIServer
+        
+        api_port = int(os.getenv('API_PORT', 8080))
+        api_host = os.getenv('API_HOST', '0.0.0.0')
+        
+        # Создаем сервер
+        server = MASAPIServer(api_host, api_port)
+        server.manager = manager
+        server.agents = manager.agents
+        
+        # Запускаем в фоновой задаче
+        runner = web.AppRunner(server.app)
+        await runner.setup()
+        site = web.TCPSite(runner, api_host, api_port)
+        await site.start()
+        
+        logger.info(f"🌐 API сервер запущен на http://{api_host}:{api_port}")
+        logger.info(f"📖 API документация: http://{api_host}:{api_port}/api/v1/")
+        
+        # Сохраняем ссылку
+        manager._api_server = server
+        manager._api_runner = runner
+        
+    except ImportError:
+        logger.warning("⚠️ aiohttp не установлен, API сервер недоступен")
     except Exception as e:
-        logger.error(f"❌ Ошибка запуска веб-интерфейса: {e}")
+        logger.error(f"❌ Ошибка запуска API сервера: {e}")
 
 
 class ProductionMASSystem:

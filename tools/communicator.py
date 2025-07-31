@@ -20,6 +20,7 @@ import logging
 from autogen.agentchat import ConversableAgent
 
 from .modern_telegram_bot import ModernTelegramBot
+from .speechkit_client import SpeechKitClient, run_telegram_bot
 
 
 @dataclass
