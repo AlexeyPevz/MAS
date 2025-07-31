@@ -17,6 +17,13 @@ try:
 except ImportError:
     AIOHTTP_AVAILABLE = False
 
+# Опциональный импорт для API сервера
+try:
+    from aiohttp import web
+    AIOHTTP_AVAILABLE = True
+except ImportError:
+    AIOHTTP_AVAILABLE = False
+
 # Настройка путей
 sys.path.insert(0, str(Path(__file__).parent))
 
