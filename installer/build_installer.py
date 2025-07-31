@@ -37,8 +37,7 @@ a = Analysis(
         ('../requirements.txt', 'mas_system'),
         ('../config', 'mas_system/config'),
         ('../deploy.sh', 'mas_system'),
-        ('../docker-compose.*.yml', 'mas_system'),
-        ('../production_launcher.py', 'mas_system'),
+        ('../run_system.py', 'mas_system'),
     ],
     hiddenimports=[
         'tkinter',

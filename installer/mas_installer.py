@@ -158,7 +158,6 @@ class MASInstaller:
         self.config_vars = {}
         configs = [
             ('OPENROUTER_API_KEY', 'OpenRouter API Key (обязательно):', True),
-            ('OPENAI_API_KEY', 'OpenAI API Key:', False),
             ('TELEGRAM_BOT_TOKEN', 'Telegram Bot Token:', False),
             ('GPT_PILOT_API_KEY', 'GPT-Pilot API Key:', False),
             ('YANDEX_GPT_API_KEY', 'Yandex GPT API Key:', False),
@@ -326,7 +325,7 @@ class MASInstaller:
     
     def start_mas_system(self):
         """Запускаем MAS систему"""
-        mas_path = Path(self.path_var.get()) / 'production_launcher.py'
+        mas_path = Path(self.path_var.get()) / 'run_system.py'
         subprocess.Popen(['python3', str(mas_path)])
         self.log("✅ MAS система запущена!")
     

@@ -400,16 +400,13 @@ main() {
             cleanup
             ;;
         "install-integrations")
-            log_info "Установка интеграций (GPT-Pilot + AutoGen Studio)..."
-            docker-compose -f docker-compose.gpt-pilot.yml up -d
-            log_success "Интеграции установлены"
-            log_info "🚀 GPT-Pilot: http://localhost:8000"
-            log_info "🎬 AutoGen Studio: http://localhost:8081"
+            log_info "Установка интеграций (AutoGen Studio)..."
+            log_info "Используйте run_system.py для запуска всех компонентов"
+            log_info "🎬 AutoGen Studio будет доступен в PWA через iframe"
             ;;
         "stop-integrations")
             log_info "Остановка интеграций..."
-            docker-compose -f docker-compose.gpt-pilot.yml down
-            log_success "Интеграции остановлены"
+            log_info "Используйте Ctrl+C для остановки run_system.py"
             ;;
         "help"|"-h"|"--help")
             show_help

@@ -204,8 +204,9 @@ class ModernTelegramBot:
             if asyncio.iscoroutinefunction(self.mas_callback):
                 response = await self.mas_callback(message)
             else:
-                # Если callback синхронный - выполняем в executor
-                response = await asyncio.get_event_loop().run_in_executor(
+                # Если callback синхронный - выполняем в executor с правильным event loop
+                loop = asyncio.get_running_loop()
+                response = await loop.run_in_executor(
                     None, self.mas_callback, message
                 )
             
@@ -250,10 +251,27 @@ class ModernTelegramBot:
             self.logger.error(f"❌ Ошибка запуска бота: {e}")
             raise
         finally:
-            # Корректная остановка
-            await self.application.updater.stop()
-            await self.application.stop()
-            await self.application.shutdown()
+            # Graceful shutdown
+            await self.shutdown()
+    
+    async def shutdown(self):
+        """Graceful остановка бота"""
+        try:
+            self.logger.info("🛑 Останавливаем Telegram бота...")
+            
+            if hasattr(self.application, 'updater') and self.application.updater.running:
+                await self.application.updater.stop()
+            
+            if hasattr(self.application, 'stop'):
+                await self.application.stop()
+                
+            if hasattr(self.application, 'shutdown'):
+                await self.application.shutdown()
+                
+            self.logger.info("✅ Telegram бот остановлен")
+            
+        except Exception as e:
+            self.logger.error(f"❌ Ошибка остановки бота: {e}")
     
     def get_stats(self) -> Dict[str, Any]:
         """Получение статистики бота"""
