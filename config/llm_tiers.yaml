@@ -5,20 +5,20 @@
 tiers:
   cheap:
     - name: "gpt-3.5-turbo"
-      provider: "openai"
+      provider: "openrouter"
     - name: "llama3-8b-instruct"
       provider: "openrouter"
 
   standard:
     - name: "gpt-4o"
-      provider: "openai"
+      provider: "openrouter"
     - name: "gemini-pro"
-      provider: "google"
+      provider: "openrouter"
 
   premium:
-    - name: "gpt-4o-long"
-      provider: "openai"
-    - name: "cldn-3-sonnet"
+    - name: "gpt-4o"
+      provider: "openrouter"
+    - name: "claude-3-sonnet-20240229"
       provider: "openrouter"
 
 # Максимальное количество повышений tier до отказа

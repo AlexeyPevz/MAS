@@ -44,9 +44,8 @@ def get_default_tiers() -> Dict[str, Any]:
 def create_llm_config(model_name: str = "gpt-4o-mini", provider: str = "openrouter") -> Dict[str, Any]:
     """Создание конфигурации для LLM модели"""
     
-    # Проверяем наличие API ключей
+    # Проверяем наличие API ключа OpenRouter
     openrouter_key = os.getenv('OPENROUTER_API_KEY')
-    openai_key = os.getenv('OPENAI_API_KEY')
     
     if provider == "openrouter" and openrouter_key:
         return {
@@ -61,28 +60,19 @@ def create_llm_config(model_name: str = "gpt-4o-mini", provider: str = "openrout
             "cache_seed": None,  # Отключаем кеширование для более свежих ответов
         }
     
-    elif provider == "openai" and openai_key:
+    else:
+        # Fallback конфигурация для режима без API
+        print(f"⚠️ OPENROUTER_API_KEY не найден, используем mock конфигурацию")
         return {
             "config_list": [{
-                "model": model_name,
-                "api_key": openai_key,
+                "model": "mock-model",
+                "api_key": "mock-key",
+                "base_url": "http://localhost:11434/v1",  # Ollama fallback
                 "temperature": 0.7,
                 "max_tokens": 2000
             }],
             "timeout": 60,
             "cache_seed": None,
-        }
-    
-    else:
-        # Fallback конфигурация для режима без API
-        print(f"⚠️ API ключ для {provider} не найден, используем mock конфигурацию")
-        return {
-            "config_list": [{
-                "model": "mock_model",
-                "api_key": "mock_key",
-                "base_url": "http://localhost:8000"  # Несуществующий endpoint
-            }],
-            "timeout": 5,
         }
 
 
@@ -123,9 +113,7 @@ def validate_api_keys() -> Dict[str, bool]:
     """Проверка наличия API ключей"""
     return {
         "openrouter": bool(os.getenv('OPENROUTER_API_KEY')),
-        "openai": bool(os.getenv('OPENAI_API_KEY')),
-        "yandex": bool(os.getenv('YANDEX_GPT_API_KEY')),
-        "anthropic": bool(os.getenv('ANTHROPIC_API_KEY')),
+        "yandex": bool(os.getenv('YANDEX_API_KEY')),
     }
 
 

@@ -17,11 +17,13 @@ import os
 from typing import Tuple
 
 
-# Optional dependencies
+# Импорт OpenAI (используется как универсальный клиент для OpenRouter)
 try:
-    import openai  # type: ignore
-except ImportError:  # pragma: no cover - optional
-    openai = None  # type: ignore
+    from openai import OpenAI  # OpenAI client можно использовать с любым OpenAI-совместимым API
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
+    OpenAI = None  # type: ignore
 
 try:
     from memory.redis_store import RedisStore
@@ -60,21 +62,21 @@ def _hash_sources(sources: List[Dict[str, Any]]) -> str:
 
 
 def _gpt_validate(sources: List[Dict[str, Any]]) -> Tuple[bool, list[str]]:
-    if openai is None:
-        raise RuntimeError("openai package not available")
+    if OpenAI is None:
+        raise RuntimeError("OpenAI package not available")
 
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY not set")
 
-    openai.api_key = api_key
+    openai_client = OpenAI(api_key=api_key)
     prompt = (
         "You are a fact-checker. Evaluate the reliability of the following sources.\n"
         "Return JSON with keys 'valid' (true/false) and 'issues' (array of strings).\n"
         f"Sources:\n{json.dumps(sources, ensure_ascii=False, indent=2)}"
     )
     try:
-        resp = openai.ChatCompletion.create(
+        resp = openai_client.chat.completions.create(
             model=os.getenv("FACTCHECK_MODEL", "gpt-3.5-turbo"),
             messages=[{"role": "user", "content": prompt}],
             temperature=0,
