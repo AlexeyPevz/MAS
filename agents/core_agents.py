@@ -185,6 +185,27 @@ class CommunicatorAgent(BaseAgent):
         return {"role": "user", "content": text}
 
 
+@dataclass  
+class BudgetManagerAgent(BaseAgent):
+    def __init__(self, model: str, tier: str = "cheap"):
+        super().__init__("budget_manager", model, tier)
+        self._costs: Dict[str, float] = {}
+    
+    def track_cost(self, agent_name: str, cost: float) -> None:
+        """Track API cost for an agent."""
+        if agent_name not in self._costs:
+            self._costs[agent_name] = 0.0
+        self._costs[agent_name] += cost
+    
+    def get_total_cost(self) -> float:
+        """Get total cost across all agents."""
+        return sum(self._costs.values())
+    
+    def get_agent_costs(self) -> Dict[str, float]:
+        """Get cost breakdown by agent."""
+        return dict(self._costs)
+
+
 def create_agents(config: AgentsConfig) -> Dict[str, ConversableAgent]:
     """Instantiate agents from configuration."""
     agents: Dict[str, ConversableAgent] = {}
@@ -202,6 +223,7 @@ def create_agents(config: AgentsConfig) -> Dict[str, ConversableAgent]:
         "workflow_builder": WfBuilderAgent,  # Исправлено: workflow_builder вместо wf_builder
         "webapp_builder": WebAppBuilderAgent,
         "communicator": CommunicatorAgent,
+        "budget_manager": BudgetManagerAgent,
     }
     for name, definition in config.agents.items():
         cls = mapping.get(name)
