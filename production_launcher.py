@@ -233,125 +233,115 @@ class ProductionMASSystem:
         self.manager = None
         self.routing = None
         self.running = False
-    
+        self.monitoring_enabled = False
+        self._telegram_bot = None
+        self._telegram_task = None
+        self._shutdown_event = asyncio.Event()
+
     async def start(self):
         """Запуск всей системы"""
-        logger.info("🚀 Запуск Production MAS System")
-        logger.info("=" * 60)
+        logger.info("🚀 Запуск Production MAS System...")
         
         try:
-            # Валидация окружения
-            if not validate_environment():
-                sys.exit(1)
+            # Инициализация системы
+            await self._initialize_system()
             
-            # Создание директорий
-            create_directories()
+            # Запуск компонентов
+            await self._start_components()
             
-            # Инициализация агентов
-            self.agents = await initialize_agents()
+            logger.info("✅ Все системы запущены и готовы к работе!")
+            logger.info("📝 Для остановки нажмите Ctrl+C")
             
-            # Настройка маршрутизации
-            self.routing = setup_routing()
-            
-            # Создание умного группового чата
-            from tools.smart_groupchat import SmartGroupChatManager
-            self.manager = SmartGroupChatManager(self.agents, self.routing)
-            
-            # Запуск мониторинга
-            await start_monitoring()
-            
-            # Запуск дополнительных сервисов
-            await start_telegram_bot(self.manager)
-            await start_web_interface(self.manager)
-            
-            self.running = True
-            
-            logger.info("✅ MAS система запущена и готова к работе!")
-            
-            # Интерактивный режим для тестирования
-            await self.interactive_mode()
+            # Ожидание сигнала остановки
+            await self._shutdown_event.wait()
             
         except KeyboardInterrupt:
-            logger.info("👋 Получен сигнал завершения...")
-            await self.shutdown()
+            logger.info("👋 Получен сигнал остановки...")
         except Exception as e:
-            logger.error(f"❌ Критическая ошибка: {e}")
-            import traceback
-            traceback.print_exc()
-            sys.exit(1)
-    
-    async def interactive_mode(self):
-        """Интерактивный режим для тестирования"""
-        logger.info("\n🎯 Интерактивный режим запущен")
-        print("\nДоступные команды:")
-        print("1. Отправить сообщение")
-        print("2. Статус системы")
-        print("3. Статистика агентов")
-        print("4. Создать задачу")
-        print("5. Выход")
+            logger.error(f"❌ Критическая ошибка системы: {e}")
+            raise
+        finally:
+            await self._cleanup()
+
+    async def _cleanup(self):
+        """Очистка ресурсов при остановке"""
+        logger.info("🧹 Очистка ресурсов...")
         
-        while self.running:
-            try:
-                print("\n" + "="*50)
-                choice = input("👉 Выберите действие (1-5): ").strip()
-                
-                if choice == "1":
-                    message = input("💬 Введите сообщение: ").strip()
-                    if message:
-                        print("🔄 Обрабатываем...")
-                        response = await self.manager.process_user_message(message)
-                        print(f"\n🤖 Ответ: {response}")
-                
-                elif choice == "2":
-                    status = self.manager.get_system_status()
-                    print("\n📊 Статус системы:")
-                    for key, value in status.items():
-                        print(f"  • {key}: {value}")
-                
-                elif choice == "3":
-                    stats = self.manager.get_agent_statistics()
-                    print("\n📈 Статистика агентов:")
-                    for agent, count in stats.items():
-                        print(f"  • {agent}: {count} сообщений")
-                
-                elif choice == "4":
-                    task = input("📋 Описание задачи: ").strip()
-                    agent = input("🤖 Агент (или Enter для auto): ").strip() or "meta"
-                    if task:
-                        task_id = await self.manager.create_task(task, agent)
-                        print(f"✅ Задача создана: {task_id}")
-                
-                elif choice == "5":
-                    print("👋 Завершение работы...")
-                    break
-                
-                else:
-                    print("❌ Неверная команда")
+        try:
+            # Остановка Telegram бота
+            if self._telegram_bot:
+                await self._telegram_bot.shutdown()
+            
+            if self._telegram_task:
+                self._telegram_task.cancel()
+                try:
+                    await self._telegram_task
+                except asyncio.CancelledError:
+                    pass
                     
-            except KeyboardInterrupt:
-                break
-            except Exception as e:
-                logger.error(f"❌ Ошибка в интерактивном режиме: {e}")
+            logger.info("✅ Очистка завершена")
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка при очистке: {e}")
+
+    def shutdown(self):
+        """Инициирует graceful shutdown"""
+        self._shutdown_event.set()
+
+    async def _initialize_system(self):
+        """Инициализация системы"""
+        logger.info("🔧 Инициализация системы...")
         
-        await self.shutdown()
-    
-    async def shutdown(self):
-        """Корректное завершение работы"""
-        logger.info("🔄 Завершение работы системы...")
+        # Валидация окружения
+        if not validate_environment():
+            raise RuntimeError("Ошибка валидации окружения")
         
-        self.running = False
+        # Создание директорий
+        create_directories()
         
-        # Сохранение состояния
-        if self.manager:
-            summary = self.manager.get_conversation_summary()
-            logger.info(f"📊 Итоговая статистика: {summary}")
+        # Инициализация агентов
+        self.agents = await initialize_agents()
         
-        logger.info("✅ Система корректно завершена")
+        # Настройка маршрутизации
+        self.routing = setup_routing()
+        
+        # Создание умного группового чата
+        from tools.smart_groupchat import SmartGroupChatManager
+        self.manager = SmartGroupChatManager(self.agents, self.routing)
+        
+        self.running = True
+        logger.info("✅ Система инициализирована")
+
+    async def _start_components(self):
+        """Запуск компонентов системы"""
+        logger.info("🚀 Запуск компонентов...")
+        
+        # Запуск мониторинга
+        await start_monitoring()
+        
+        # Запуск дополнительных сервисов
+        await start_telegram_bot(self.manager)
+        await start_web_interface(self.manager)
+        
+        logger.info("✅ Все компоненты запущены")
 
 
 async def main():
     """Основная функция"""
     system = ProductionMASSystem()
+    
+    # Обработчик сигналов для graceful shutdown
+    def signal_handler():
+        logger.info("🛑 Получен сигнал остановки...")
+        system.shutdown()
+    
+    # Регистрируем обработчики сигналов
+    import signal
+    if hasattr(signal, 'SIGINT'):
+        signal.signal(signal.SIGINT, lambda s, f: signal_handler())
+    if hasattr(signal, 'SIGTERM'):
+        signal.signal(signal.SIGTERM, lambda s, f: signal_handler())
+    
     await system.start()
 
 
@@ -362,4 +352,6 @@ if __name__ == "__main__":
         print("\n👋 Программа прервана пользователем")
     except Exception as e:
         print(f"\n❌ Критическая ошибка: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)

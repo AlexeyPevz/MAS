@@ -9,3 +9,12 @@ prometheus_client>=0.18.0,<1.0.0
 hvac>=1.2.0,<2.0.0
 gitpython
 pyautogen>=0.2.32
+anthropic==0.8.1
+openai==1.6.1
+autogen[pyautogen]==0.2.33
+autogen_agentchat
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.0.0
+psutil  # для системных метрик
+aiohttp>=3.9.0  # для API клиентов
