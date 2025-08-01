@@ -7,7 +7,4 @@ __pycache__
 *.egg
 *.egg-info
 *.dist-info
-root_mas.zip
-root_mas_sprint1.zip
-root_mas_sprint2.zip
 .env
