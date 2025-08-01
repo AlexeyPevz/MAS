@@ -34,3 +34,15 @@ agents:
     assert cfg.agents["bob"].model == "gpt-4"
 
 
+def test_load_config(tmp_path):
+    # Create minimal configuration files
+    (tmp_path / "agents.yaml").write_text(
+        "agents:\n  test_agent:\n    role: tester\n"
+    )
+    (tmp_path / "llm_tiers.yaml").write_text("tiers:\n  cheap: []\n")
+
+    config = cl.load_config(tmp_path)
+    assert "test_agent" in config["agents"]
+    assert "llm_tiers" in config and "tiers" in config["llm_tiers"]
+
+
