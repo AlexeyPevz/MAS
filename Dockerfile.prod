@@ -38,5 +38,5 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # By default run echo goal for health-check. Override with `-e MAS_GOAL="..."`.
 ENV MAS_GOAL="echo"
 
-ENTRYPOINT ["python", "run.py"]
+ENTRYPOINT ["python", "run_system.py"]
 CMD ["--goal", "$MAS_GOAL"]
