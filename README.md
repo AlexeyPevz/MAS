@@ -1,21 +1,105 @@
 # Root-MAS: Multi-Agent System Platform 🤖
 
-[![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Python](https://img.shields.io/badge/python-3.9--3.13-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![AutoGen](https://img.shields.io/badge/AutoGen-0.5.1+-orange.svg)](https://github.com/microsoft/autogen)
 
-Root-MAS provides a lightweight yet production-ready skeleton for building a multi-agent system on top of AutoGen.  The platform ships with:
+Root-MAS provides a lightweight yet production-ready skeleton for building a multi-agent system on top of AutoGen v0.4+. The platform ships with:
 
 • A core set of specialised agents (Meta, Coordination, Model-Selector, Prompt-Builder, etc.)
-• Plug-and-play tool integrations (n8n, ChromaDB, Redis, Vault, Prometheus)
-• CI, Docker & GHCR pipelines for repeatable deployments
-• A tiered LLM-cascade with budget awareness
+• RESTful API server with WebSocket support
+• Integration bridges for Telegram, PWA, and other clients  
+• PostgreSQL for persistent storage, Redis for caching, ChromaDB for embeddings
+• Prometheus metrics and structured logging
+• Easy deployment via Docker Compose or Kubernetes
 
 The high-level message flow is visualised below (see [`docs/architecture.mmd`](docs/architecture.mmd)):
 
 ![architecture](https://raw.githubusercontent.com/any/placeholder/diagram.svg)
 
-## Repository structure
+## 🚀 Быстрый старт
+
+### 🎯 Запуск одной командой
+
+#### Linux/macOS:
+```bash
+# Клонируйте репозиторий
+git clone https://github.com/yourusername/root-mas.git
+cd root-mas
+
+# Запустите автоматическую установку и старт
+./setup.sh
+```
+
+#### Windows/Любая ОС с Python:
+```bash
+# Клонируйте репозиторий
+git clone https://github.com/yourusername/root-mas.git
+cd root-mas
+
+# Запустите универсальный установщик
+python install_and_run.py
+```
+
+### ✅ Что происходит автоматически:
+
+1. **Проверка окружения:**
+   - Python версии (требуется 3.9-3.13)
+   - Удаление старых версий AutoGen если есть
+
+2. **Установка зависимостей:**
+   - AutoGen v0.4+ (autogen-agentchat, autogen-ext)
+   - Все необходимые библиотеки из requirements.txt
+
+3. **Настройка конфигурации:**
+   - Создание .env из .env.example
+   - Проверка API ключей
+
+4. **Запуск системы:**
+   - API сервер на http://localhost:8000
+   - Документация API на http://localhost:8000/docs
+   - Telegram бот (если настроен токен)
+
+### 📋 Минимальные требования:
+
+- **Python 3.9-3.13** (AutoGen v0.4+ не поддерживает Python 3.14+)
+- **API ключ OpenRouter** для работы LLM моделей
+- 4GB RAM минимум
+- 2GB свободного места на диске
+
+### 🔧 Конфигурация:
+
+1. **Скопируйте .env.example в .env:**
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Заполните обязательный API ключ:**
+   ```bash
+   # Откройте .env и добавьте ваш ключ
+   OPENROUTER_API_KEY=your-actual-api-key-here
+   ```
+
+3. **Опциональные интеграции:**
+   - `TELEGRAM_BOT_TOKEN` - для Telegram бота
+   - `YANDEX_API_KEY` - для голосовых функций
+
+### 🚀 Последующие запуски:
+
+После первой установки используйте:
+
+```bash
+# Linux/macOS
+./start.sh
+
+# Windows
+start.bat
+
+# Или напрямую
+python run_system.py
+```
+
+## 📁 Структура проекта
 
 ```
 .
@@ -37,81 +121,6 @@ The high-level message flow is visualised below (see [`docs/architecture.mmd`](d
 ├── compose.yml             # compose template for a single client MAS
 └── requirements.txt        # Python dependencies
 ```
-
-## 🚀 Быстрый старт
-
-### Автоматическая установка (рекомендуется)
-
-#### Linux/macOS:
-```bash
-# Клонируйте репозиторий
-git clone https://github.com/yourusername/root-mas.git
-cd root-mas
-
-# Запустите скрипт автоматической установки
-./setup.sh
-
-# После установки запустите систему
-./start.sh
-```
-
-#### Windows:
-```bash
-# Клонируйте репозиторий
-git clone https://github.com/yourusername/root-mas.git
-cd root-mas
-
-# Запустите установщик Python
-python install_and_run.py
-
-# Или используйте готовый батник после установки
-start.bat
-```
-
-### Ручная установка
-
-1. **Требования:**
-   - Python 3.9-3.13 (AutoGen v0.4+ требует Python < 3.14)
-   - pip и venv
-
-2. **Клонируйте репозиторий:**
-   ```bash
-   git clone <repo> root-mas && cd root-mas
-   cp .env.example .env
-   # Edit .env and add your OPENROUTER_API_KEY
-   ```
-
-3. **Install dependencies.**  Python 3.9 or newer is required.
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Configure environment variables.**  Copy `.env.example` to `.env` and fill in the API keys (`OPENROUTER_API_KEY`, `YANDEX_API_KEY`, `YANDEX_FOLDER_ID`, `N8N_API_TOKEN`, `TELEGRAM_BOT_TOKEN`).  Adjust connection settings for PostgreSQL, Redis and ChromaDB if needed.
-
-5. **Start supporting services.**  Launch the containers with Docker Compose:
-
-   ```bash
-   cd deploy/internal
-   cp .env.example .env  # adjust if needed
-   docker compose up -d
-   ```
-
-   This starts PostgreSQL, Redis, ChromaDB and n8n.  For a client deployment use `deploy/client/compose.yml` or the top‑level `compose.yml`.
-
-6. **Initialise the database (optional).**  Apply SQL migrations:
-
-   ```bash
-   python examples/init_db.py
-   ```
-
-7. **Run the system.**
-
-   ```bash
-   python run_system.py
-   ```
-
-   The script launches the MAS system and prints status information.
 
 ## Operations & observability
 

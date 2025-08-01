@@ -26,13 +26,21 @@ def print_banner():
 def check_python_version():
     """Проверка версии Python"""
     print("🐍 Проверка версии Python...")
-    if sys.version_info < (3, 9):
-        print(f"❌ Требуется Python 3.9 или выше, у вас {sys.version}")
+    version_info = sys.version_info
+    version_str = f"{version_info.major}.{version_info.minor}.{version_info.micro}"
+    
+    if version_info < (3, 9):
+        print(f"❌ Требуется Python 3.9 или выше, у вас {version_str}")
         sys.exit(1)
-    elif sys.version_info >= (3, 14):
-        print(f"⚠️  Python {sys.version} может быть несовместим с AutoGen (требуется < 3.14)")
+    elif version_info >= (3, 14):
+        print(f"❌ AutoGen не поддерживает Python 3.14+, у вас {version_str}")
+        print("   Установите Python 3.9-3.13")
+        sys.exit(1)
+    elif version_info.major == 3 and version_info.minor == 13:
+        print(f"⚠️  Python {version_str} - экспериментальная поддержка в AutoGen")
+        print("   Рекомендуется Python 3.9-3.12 для стабильной работы")
     else:
-        print(f"✅ Python {sys.version} - OK")
+        print(f"✅ Python {version_str} - OK")
 
 
 def get_installed_version(package_name):
