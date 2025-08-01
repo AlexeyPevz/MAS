@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Tuple
 import logging
 
 from .budget_manager import BudgetManager
+from .gemini_cli import get_gemini_cli
 
 try:
     import yaml  # type: ignore
