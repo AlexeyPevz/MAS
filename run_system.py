@@ -51,7 +51,7 @@ async def main():
             sys.exit(1)
         
         # Определяем режим запуска
-        mode = os.getenv("RUN_MODE", "full")  # full, api-only, mas-only
+        mode = os.getenv("RUN_MODE", "full")  # full, api, mas
         
         tasks = []
         

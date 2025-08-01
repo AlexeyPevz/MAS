@@ -84,12 +84,19 @@ python3 run_system.py
 
 ### Доступные режимы:
 
+Переменная окружения `RUN_MODE` управляет запуском компонентов:
+`full` (по умолчанию) — API + MAS + Telegram, `api` — только API,
+`mas` — только MAS.
+
 ```bash
 # Полная система (API + MAS + Telegram)
 python3 run_system.py
 
 # Только API сервер
 RUN_MODE=api python3 run_system.py
+
+# Только MAS система (без API)
+RUN_MODE=mas python3 run_system.py
 
 # Без Telegram бота
 unset TELEGRAM_BOT_TOKEN && python3 run_system.py
