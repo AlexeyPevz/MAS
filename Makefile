@@ -67,12 +67,12 @@ quick-start: dev-install test start
 
 quick-demo:
 	@echo "🎭 Быстрое демо..."
-	python3 production_launcher.py
+	python3 run_system.py
 
 # === Legacy Commands ===
 run:
 	@echo "⚠️ Используйте 'make start' вместо 'make run'"
-	python3 production_launcher.py
+	python3 run_system.py
 
 # === Help ===
 help:

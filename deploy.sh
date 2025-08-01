@@ -235,11 +235,11 @@ start_mas_system() {
     create_systemd_service
     
     # Запускаем систему
-    log_info "Запуск production launcher..."
+    log_info "Запуск run_system.py..."
     log_info "Система будет доступна в интерактивном режиме"
     log_info "Для завершения используйте Ctrl+C"
-    
-    python3 production_launcher.py
+
+    python3 run_system.py
 }
 
 # Функция создания systemd сервиса
@@ -258,7 +258,7 @@ Type=simple
 User=$(whoami)
 WorkingDirectory=$(pwd)
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
-ExecStart=$(which python3) production_launcher.py
+ExecStart=$(which python3) run_system.py
 ExecStop=/bin/kill -TERM \$MAINPID
 Restart=always
 RestartSec=10
