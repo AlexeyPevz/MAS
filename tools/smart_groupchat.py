@@ -133,6 +133,9 @@ class SmartGroupChatManager:
                         
                 except Exception as e:
                     self.logger.error(f"❌ LLM вызов агента {agent_name} failed: {e}")
+                    # Проверяем, это проблема с новым API?
+                    if "on_messages" in str(e) or "autogen" in str(e).lower():
+                        self.logger.warning(f"⚠️ Возможна проблема с AutoGen v0.4 API, используем fallback")
                     response = f"[{agent_name}] ⚠️ Ошибка LLM: пробую альтернативную модель..."
                     
                     # Пробуем fallback ответ
