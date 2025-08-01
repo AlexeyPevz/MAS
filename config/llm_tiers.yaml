@@ -14,12 +14,22 @@ tiers:
       provider: "openrouter"
     - name: "gemini-pro"
       provider: "openrouter"
+    - name: "gemini-2.5-flash"
+      provider: "gemini-cli"
 
   premium:
     - name: "gpt-4o"
       provider: "openrouter"
     - name: "claude-3-sonnet-20240229"
       provider: "openrouter"
+    - name: "gemini-2.5-pro"
+      provider: "gemini-cli"
+      
+  # Специальный уровень для локального Gemini CLI
+  gemini_local:
+    - name: "gemini-2.5-pro"
+      provider: "gemini-cli"
+      context_window: 1000000
 
 # Максимальное количество повышений tier до отказа
 max_retries: 3

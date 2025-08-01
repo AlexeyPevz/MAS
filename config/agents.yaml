@@ -114,3 +114,23 @@ agents:
       Uses cheap models for routine budget checks.
     default_tier: cheap
     memory: budget_db
+
+  gemini_assistant:
+    role: Gemini-Assistant
+    description: >-
+      Specialized agent with access to Gemini 2.5 Pro via CLI. Features 1M token
+      context window, Google Search integration, and multimodal capabilities.
+      Ideal for complex development tasks, large codebase analysis, and research
+      with real-time information. Executes locally in terminal for maximum control.
+    default_tier: gemini_local
+    memory: gemini_mem
+    capabilities:
+      - code_generation
+      - code_analysis
+      - test_generation
+      - documentation
+      - debugging
+      - research
+      - architecture_design
+      - security_audit
+      - performance_optimization
