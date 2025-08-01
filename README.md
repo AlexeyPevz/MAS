@@ -6,6 +6,7 @@ Root-MAS provides a lightweight yet production-ready skeleton for building a mul
 • Plug-and-play tool integrations (n8n, ChromaDB, Redis, Vault, Prometheus)
 • CI, Docker & GHCR pipelines for repeatable deployments
 • A tiered LLM-cascade with budget awareness
+• Gemini CLI integration for advanced AI capabilities with 1M token context
 
 The high-level message flow is visualised below (see [`docs/architecture.mmd`](docs/architecture.mmd)):
 
