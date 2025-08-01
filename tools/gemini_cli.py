@@ -181,6 +181,56 @@ class GeminiCLI:
         """
         prompt = "Generate comprehensive documentation for this code"
         return await self.execute(prompt, {"files": [file_path]})
+    
+    async def generate_image(self, description: str, style: str = "realistic") -> Dict[str, Any]:
+        """
+        Генерация изображения через Imagen.
+        
+        Args:
+            description: Описание изображения
+            style: Стиль (realistic, artistic, technical, diagram)
+            
+        Returns:
+            Путь к сгенерированному изображению
+        """
+        prompt = f"Generate an image using Imagen: {description}. Style: {style}"
+        return await self.execute(prompt)
+    
+    async def generate_video(self, script: str, duration: int = 5) -> Dict[str, Any]:
+        """
+        Генерация видео через Veo 3.
+        
+        Args:
+            script: Сценарий видео
+            duration: Длительность в секундах
+            
+        Returns:
+            Путь к сгенерированному видео
+        """
+        prompt = f"Generate a {duration} second video using Veo 3: {script}"
+        return await self.execute(prompt)
+    
+    async def code_review(self, file_path: str, focus_areas: List[str] = None) -> Dict[str, Any]:
+        """
+        Детальное код-ревью с рекомендациями.
+        
+        Args:
+            file_path: Путь к файлу для ревью
+            focus_areas: Области фокуса (security, performance, readability, etc.)
+            
+        Returns:
+            Результат код-ревью с оценками и рекомендациями
+        """
+        areas = ", ".join(focus_areas) if focus_areas else "all aspects"
+        prompt = f"""
+        Perform a detailed code review focusing on {areas}.
+        Provide:
+        1. Overall score (1-10)
+        2. Issues found with severity
+        3. Specific recommendations
+        4. Code examples for improvements
+        """
+        return await self.execute(prompt, {"files": [file_path]})
 
 
 # Singleton для глобального использования

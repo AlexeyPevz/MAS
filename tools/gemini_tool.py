@@ -167,6 +167,69 @@ def create_gemini_tools():
             logger.error(f"Ошибка в gemini_query: {str(e)}")
             return f"Ошибка выполнения: {str(e)}"
     
+    def gemini_code_review(file_path: str, focus_areas: Optional[List[str]] = None) -> str:
+        """
+        Детальное код-ревью через Gemini.
+        
+        Args:
+            file_path: Путь к файлу для ревью
+            focus_areas: Области фокуса (security, performance, readability)
+            
+        Returns:
+            Результат код-ревью
+        """
+        try:
+            result = asyncio.run(gemini.code_review(file_path, focus_areas))
+            if result["success"]:
+                return result["response"]
+            else:
+                return f"Ошибка Gemini: {result['error']}"
+        except Exception as e:
+            logger.error(f"Ошибка в gemini_code_review: {str(e)}")
+            return f"Ошибка выполнения: {str(e)}"
+    
+    def gemini_generate_image(description: str, style: str = "realistic") -> str:
+        """
+        Генерация изображения через Imagen.
+        
+        Args:
+            description: Описание изображения
+            style: Стиль изображения
+            
+        Returns:
+            Путь к изображению или описание результата
+        """
+        try:
+            result = asyncio.run(gemini.generate_image(description, style))
+            if result["success"]:
+                return result["response"]
+            else:
+                return f"Ошибка Gemini: {result['error']}"
+        except Exception as e:
+            logger.error(f"Ошибка в gemini_generate_image: {str(e)}")
+            return f"Ошибка выполнения: {str(e)}"
+    
+    def gemini_generate_video(script: str, duration: int = 5) -> str:
+        """
+        Генерация видео через Veo 3.
+        
+        Args:
+            script: Сценарий видео
+            duration: Длительность в секундах
+            
+        Returns:
+            Путь к видео или описание результата
+        """
+        try:
+            result = asyncio.run(gemini.generate_video(script, duration))
+            if result["success"]:
+                return result["response"]
+            else:
+                return f"Ошибка Gemini: {result['error']}"
+        except Exception as e:
+            logger.error(f"Ошибка в gemini_generate_video: {str(e)}")
+            return f"Ошибка выполнения: {str(e)}"
+    
     # Возвращаем словарь с инструментами
     return {
         "gemini_code_assist": gemini_code_assist,
@@ -175,7 +238,10 @@ def create_gemini_tools():
         "gemini_debug_error": gemini_debug_error,
         "gemini_research": gemini_research,
         "gemini_generate_docs": gemini_generate_docs,
-        "gemini_query": gemini_query
+        "gemini_query": gemini_query,
+        "gemini_code_review": gemini_code_review,
+        "gemini_generate_image": gemini_generate_image,
+        "gemini_generate_video": gemini_generate_video
     }
 
 
