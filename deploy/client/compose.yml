@@ -10,7 +10,7 @@ services:
     volumes:
       - ../../:/app
     working_dir: /app/root_mas
-    command: ["python", "run.py", "--goal", "echo"]
+    command: ["python", "run_system.py", "--goal", "echo"]
     env_file:
       - .env
     depends_on:
