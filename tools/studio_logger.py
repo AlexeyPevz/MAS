@@ -59,12 +59,13 @@ def send_to_studio(url: str = None, log_file: Path | None = None) -> bool:
     
     try:
         with lf.open("rb") as f:
-            response = requests.post(
-                upload_url,
-                files={"file": (lf.name, f, "application/jsonl")},
-                headers=headers,
-                timeout=10,
-            )
+            req_kwargs = {
+                "files": {"file": (lf.name, f, "application/jsonl")},
+                "timeout": 10,
+            }
+            if headers:
+                req_kwargs["headers"] = headers
+            response = requests.post(upload_url, **req_kwargs)
         response.raise_for_status()
         print(f"[studio_logger] ✅ Logs sent to AutoGen Studio: {upload_url}")
         return True

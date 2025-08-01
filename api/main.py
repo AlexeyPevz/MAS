@@ -13,6 +13,8 @@ from typing import Dict, List, Optional, Any
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+import httpx
+
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -24,6 +26,7 @@ from tools.smart_groupchat import SmartGroupChatManager
 from tools.modern_telegram_bot import ModernTelegramBot
 from config.config_loader import load_config
 from api.integration import mas_integration
+from tools import studio_logger
 
 
 # Pydantic модели для API
@@ -822,15 +825,41 @@ async def broadcast_to_websockets(message: Dict[str, Any]):
 
 @app.get("/api/v1/studio/logs")
 async def get_studio_logs():
-    """Прокси для AutoGen Studio логов"""
+    """Получение или проксирование логов AutoGen Studio."""
     try:
-        # Здесь можно проксировать запросы к AutoGen Studio
-        # или читать логи напрямую из файлов
-        return {"message": "Studio logs integration - TODO"}
-        
+        studio_url = os.getenv("AUTOGEN_STUDIO_URL")
+
+        if studio_url:
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    resp = await client.get(f"{studio_url}/api/v1/logs")
+                    resp.raise_for_status()
+                    return JSONResponse(status_code=resp.status_code, content=resp.json())
+            except Exception as proxy_err:
+                logger.error(f"❌ Failed to proxy Studio logs: {proxy_err}")
+
+        log_path = studio_logger.LOG_PATH
+        if not log_path.exists():
+            raise HTTPException(status_code=404, detail="Studio log file not found")
+
+        logs: List[Dict[str, Any]] = []
+        with log_path.open("r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    logs.append(json.loads(line))
+                except json.JSONDecodeError:
+                    logger.error(f"Invalid log line encountered: {line}")
+
+        return JSONResponse(content=logs)
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"❌ Ошибка получения Studio логов: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to retrieve Studio logs")
 
 
 # Новые endpoints для визуализации мыслительного процесса
