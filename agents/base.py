@@ -2,23 +2,25 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
+import asyncio
 
-# Импорт AutoGen с поддержкой разных версий
+# Импорт AutoGen v0.4+ с поддержкой новых API
 try:
-    from autogen.agentchat import ConversableAgent
+    from autogen_agentchat.agents import AssistantAgent
+    from autogen_ext.models.openai import OpenAIChatCompletionClient
+    from autogen_core import CancellationToken
 except ImportError:
-    try:
-        from autogen_agentchat import ConversableAgent
-    except ImportError:
-        # Fallback для случая отсутствия autogen
-        class ConversableAgent:
-            def __init__(self, name, llm_config, system_message="", *args, **kwargs):
-                self.name = name
-                self.llm_config = llm_config
-                self.system_message = system_message
-            
-            def generate_reply(self, messages=None, sender=None, config=None):
-                return f"[{self.name}] Mock response"
+    # Fallback для случая отсутствия autogen
+    class AssistantAgent:
+        def __init__(self, name, model_client=None, system_message="", *args, **kwargs):
+            self.name = name
+            self.model_client = model_client
+            self.system_message = system_message
+        
+        async def on_messages(self, messages, cancellation_token=None):
+            from autogen_agentchat.messages import TextMessage
+            from autogen_agentchat.base import Response
+            return Response(chat_message=TextMessage(content=f"[{self.name}] Mock response", source=self.name))
 
 from tools.prompt_io import read_prompt
 
@@ -43,31 +45,50 @@ def _task_prompt_path(agent_name: str, task: str) -> Path:
 PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts" / "agents"
 
 
-class BaseAgent(ConversableAgent):
+class BaseAgent(AssistantAgent):
     """Base class for root MAS agents."""
 
     def __init__(self, name: str, model: str = "gpt-4o-mini", tier: str = "cheap", *args: Any, **kwargs: Any) -> None:
         # Загружаем системный промпт
-        prompt_path = PROMPTS_DIR / name / "system.md"
-        system_prompt = read_prompt(prompt_path)
-        
-        # Создаем LLM конфигурацию
+        if "system_message" not in kwargs:
+            prompt_path = PROMPTS_DIR / name / "system.md"
+            kwargs["system_message"] = read_prompt(prompt_path)
+
+        # Создаем model_client вместо llm_config
         from tools.llm_config import get_model_by_tier, create_llm_config
         
-        # Используем tier для автоматического выбора модели или конкретную модель
-        if tier and tier in ["cheap", "standard", "premium"]:
+        if tier:
             llm_config = get_model_by_tier(tier, 0)
         else:
             llm_config = create_llm_config(model, "openrouter")
         
+        # Конвертируем старый llm_config в новый model_client
+        config_list = llm_config.get("config_list", [{}])[0]
+        api_key = config_list.get("api_key", "mock-key")
+        base_url = config_list.get("base_url")
+        
+        try:
+            # Создаем OpenAI клиент для v0.4
+            model_client = OpenAIChatCompletionClient(
+                model=config_list.get("model", model),
+                api_key=api_key,
+                base_url=base_url,
+                temperature=config_list.get("temperature", 0.7),
+                max_tokens=config_list.get("max_tokens", 2000)
+            )
+        except:
+            # Fallback на mock клиент
+            model_client = None
+
         super().__init__(
-            name=name, 
-            llm_config=llm_config, 
-            system_message=system_prompt, 
-            *args, 
+            name=name,
+            model_client=model_client,
+            *args,
             **kwargs
         )
-
+        self.tier = tier
+        self.model = model
+        
         # Cache for task-specific prompts: slug -> text
         self._task_prompts: dict[str, str] = {}
         self._current_tier = tier
@@ -76,6 +97,36 @@ class BaseAgent(ConversableAgent):
         # Auto-connect memory based on agent configuration
         self.memory = None
         self._setup_memory()
+
+    async def generate_reply_async(self, messages=None, sender=None, config=None):
+        """Асинхронная версия generate_reply для совместимости"""
+        if messages is None:
+            messages = []
+        
+        try:
+            from autogen_agentchat.messages import TextMessage
+            # Конвертируем старый формат сообщений в новый
+            new_messages = []
+            for msg in messages:
+                if isinstance(msg, dict):
+                    content = msg.get("content", "")
+                    source = msg.get("name", "user")
+                else:
+                    content = str(msg)
+                    source = "user"
+                new_messages.append(TextMessage(content=content, source=source))
+            
+            # Используем новый API
+            cancellation_token = CancellationToken()
+            response = await self.on_messages(new_messages, cancellation_token)
+            return response.chat_message.content
+        except Exception as e:
+            print(f"Error in generate_reply_async: {e}")
+            return f"[{self.name}] Error processing message"
+
+    def generate_reply(self, messages=None, sender=None, config=None):
+        """Синхронная обертка для обратной совместимости"""
+        return asyncio.run(self.generate_reply_async(messages, sender, config))
 
     # ------------------------------------------------------------------
     # Prompt helpers

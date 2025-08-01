@@ -3,22 +3,23 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict
 
-# Импорт AutoGen с поддержкой разных версий
+# Импорт AutoGen v0.4+ с поддержкой новых API
 try:
-    from autogen.agentchat import ConversableAgent
+    from autogen_agentchat.agents import AssistantAgent
+    from autogen_ext.models.openai import OpenAIChatCompletionClient
+    from autogen_core import CancellationToken
 except ImportError:
-    try:
-        from autogen_agentchat import ConversableAgent
-    except ImportError:
-        # Fallback для случая отсутствия autogen
-        class ConversableAgent:
-            def __init__(self, name, llm_config, system_message="", *args, **kwargs):
-                self.name = name
-                self.llm_config = llm_config
-                self.system_message = system_message
-            
-            def generate_reply(self, messages=None, sender=None, config=None):
-                return f"[{self.name}] Mock response"
+    # Fallback для случая отсутствия autogen
+    class AssistantAgent:
+        def __init__(self, name, model_client=None, system_message="", *args, **kwargs):
+            self.name = name
+            self.model_client = model_client
+            self.system_message = system_message
+        
+        async def on_messages(self, messages, cancellation_token=None):
+            from autogen_agentchat.messages import TextMessage
+            from autogen_agentchat.base import Response
+            return Response(chat_message=TextMessage(content=f"[{self.name}] Mock response", source=self.name))
 
 from config.config_loader import AgentsConfig, AgentDefinition
 from .base import BaseAgent
@@ -206,9 +207,9 @@ class BudgetManagerAgent(BaseAgent):
         return dict(self._costs)
 
 
-def create_agents(config: AgentsConfig) -> Dict[str, ConversableAgent]:
+def create_agents(config: AgentsConfig) -> Dict[str, AssistantAgent]:
     """Instantiate agents from configuration."""
-    agents: Dict[str, ConversableAgent] = {}
+    agents: Dict[str, AssistantAgent] = {}
     mapping = {
         "meta": MetaAgent,
         "coordination": CoordinationAgent,
