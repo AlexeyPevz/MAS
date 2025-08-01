@@ -86,6 +86,21 @@ class AgentProfile(BaseModel):
     description: str
     capabilities: List[str]
 
+# Загружаем конфигурацию системы и формируем профили агентов
+CONFIG = load_config()
+AGENTS_CONFIG = CONFIG.get("agents", {})
+AGENT_PROFILES = [
+    AgentProfile(
+        agent_id=name,
+        name=cfg.get("role", name),
+        role=cfg.get("role", ""),
+        avatar_url=cfg.get("avatar_url", ""),
+        description=cfg.get("description", ""),
+        capabilities=cfg.get("capabilities", []),
+    )
+    for name, cfg in AGENTS_CONFIG.items()
+]
+
 class MessageFlow(BaseModel):
     flow_id: str
     user_message: str
@@ -423,54 +438,9 @@ async def voice_chat(audio_file: bytes, user_id: str = "voice_user"):
         logger.error(f"❌ Ошибка voice chat: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 # =============================================================================
 # CHAT API - для диалога с Communicator Agent
 # =============================================================================
-
-# Профили агентов (можно вынести в отдельный конфиг)
-AGENT_PROFILES = [
-    AgentProfile(
-        agent_id="communicator",
-        name="Коммуникатор",
-        role="Интерфейс пользователя",
-        avatar_url="/static/avatars/communicator.png",
-        description="Принимает сообщения пользователей и координирует ответы",
-        capabilities=["Обработка голоса", "Перевод", "Форматирование"]
-    ),
-    AgentProfile(
-        agent_id="meta_agent",
-        name="Мета-Агент",
-        role="Координатор команды",
-        avatar_url="/static/avatars/meta_agent.png", 
-        description="Анализирует задачи и распределяет их между специалистами",
-        capabilities=["Планирование", "Координация", "Принятие решений"]
-    ),
-    AgentProfile(
-        agent_id="data_analyst",
-        name="Аналитик Данных",
-        role="Специалист по данным",
-        avatar_url="/static/avatars/data_analyst.png",
-        description="Анализирует данные и создает инсайты",
-        capabilities=["Анализ данных", "Статистика", "Визуализация"]
-    ),
-    AgentProfile(
-        agent_id="researcher",
-        name="Исследователь",
-        role="Поиск информации",
-        avatar_url="/static/avatars/researcher.png",
-        description="Ищет и верифицирует информацию",
-        capabilities=["Веб-поиск", "Проверка фактов", "Исследования"]
-    ),
-    AgentProfile(
-        agent_id="creative_writer",
-        name="Креативщик",
-        role="Создание контента",
-        avatar_url="/static/avatars/creative_writer.png",
-        description="Создает креативный и привлекательный контент",
-        capabilities=["Копирайтинг", "Сторителлинг", "Креатив"]
-    )
-]
 
 @app.post("/api/v1/chat/message", response_model=ChatResponse)
 async def send_message_with_visualization(message: ChatMessage):
