@@ -1,4 +1,8 @@
-# Root-MAS: Multi-Agent System Platform
+# Root-MAS: Multi-Agent System Platform 🤖
+
+[![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![AutoGen](https://img.shields.io/badge/AutoGen-0.5.1+-orange.svg)](https://github.com/microsoft/autogen)
 
 Root-MAS provides a lightweight yet production-ready skeleton for building a multi-agent system on top of AutoGen.  The platform ships with:
 
@@ -34,57 +38,58 @@ The high-level message flow is visualised below (see [`docs/architecture.mmd`](d
 └── requirements.txt        # Python dependencies
 ```
 
-## 🚀 Quick Start
+## 🚀 Быстрый старт
 
-### One-Command Deployment
+### Автоматическая установка (рекомендуется)
 
-1. **Clone & configure:**
+#### Linux/macOS:
+```bash
+# Клонируйте репозиторий
+git clone https://github.com/yourusername/root-mas.git
+cd root-mas
+
+# Запустите скрипт автоматической установки
+./setup.sh
+
+# После установки запустите систему
+./start.sh
+```
+
+#### Windows:
+```bash
+# Клонируйте репозиторий
+git clone https://github.com/yourusername/root-mas.git
+cd root-mas
+
+# Запустите установщик Python
+python install_and_run.py
+
+# Или используйте готовый батник после установки
+start.bat
+```
+
+### Ручная установка
+
+1. **Требования:**
+   - Python 3.9-3.13 (AutoGen v0.4+ требует Python < 3.14)
+   - pip и venv
+
+2. **Клонируйте репозиторий:**
    ```bash
    git clone <repo> root-mas && cd root-mas
    cp .env.example .env
    # Edit .env and add your OPENROUTER_API_KEY
    ```
 
-2. **Install & start everything:**
-   ```bash
-   make install && make start
-   ```
-   
-   Or using the deployment script directly:
-   ```bash
-   ./deploy.sh install
-   ./deploy.sh start
-   ```
-
-3. **That's it!** 🎉 Your MAS system is running with:
-   - All 12 agents initialized (including the new Budget-Manager)
-   - API server on http://localhost:8000
-   - PostgreSQL, Redis, ChromaDB running
-   - Prometheus metrics on port 9000
-   - Telegram bot (if configured)
-   - Interactive PWA interface on http://localhost:8000/app
-
-### Quick Commands
-
-```bash
-make status    # Check system status
-make logs      # View logs
-make restart   # Restart everything
-make stop      # Stop system
-make clean     # Clean up
-```
-
-## Manual deployment (dev environment)
-
-1. **Install dependencies.**  Python 3.9 or newer is required.
+3. **Install dependencies.**  Python 3.9 or newer is required.
 
    ```bash
    pip install -r requirements.txt
    ```
 
-2. **Configure environment variables.**  Copy `.env.example` to `.env` and fill in the API keys (`OPENROUTER_API_KEY`, `YANDEX_API_KEY`, `YANDEX_FOLDER_ID`, `N8N_API_TOKEN`, `TELEGRAM_BOT_TOKEN`).  Adjust connection settings for PostgreSQL, Redis and ChromaDB if needed.
+4. **Configure environment variables.**  Copy `.env.example` to `.env` and fill in the API keys (`OPENROUTER_API_KEY`, `YANDEX_API_KEY`, `YANDEX_FOLDER_ID`, `N8N_API_TOKEN`, `TELEGRAM_BOT_TOKEN`).  Adjust connection settings for PostgreSQL, Redis and ChromaDB if needed.
 
-3. **Start supporting services.**  Launch the containers with Docker Compose:
+5. **Start supporting services.**  Launch the containers with Docker Compose:
 
    ```bash
    cd deploy/internal
@@ -94,13 +99,13 @@ make clean     # Clean up
 
    This starts PostgreSQL, Redis, ChromaDB and n8n.  For a client deployment use `deploy/client/compose.yml` or the top‑level `compose.yml`.
 
-4. **Initialise the database (optional).**  Apply SQL migrations:
+6. **Initialise the database (optional).**  Apply SQL migrations:
 
    ```bash
    python examples/init_db.py
    ```
 
-5. **Run the system.**
+7. **Run the system.**
 
    ```bash
    python run_system.py
