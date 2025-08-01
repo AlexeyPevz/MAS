@@ -8,7 +8,6 @@ import logging
 from typing import Optional
 
 # Интеграция будет через существующие компоненты
-# from production_launcher import ProductionMASSystem
 from tools.smart_groupchat import SmartGroupChatManager
 
 

@@ -29,7 +29,7 @@ The high-level message flow is visualised below (see [`docs/architecture.mmd`](d
 ├── memory/                 # storage backends (Redis, Postgres, Chroma)
 ├── prompts/                # system prompts for all agents
 ├── tools/                  # helper modules for integrations
-├── production_launcher.py  # entry point for production MAS system
+├── run_system.py           # entry point for production MAS system
 ├── compose.yml             # compose template for a single client MAS
 └── requirements.txt        # Python dependencies
 ```
@@ -100,13 +100,13 @@ make clean     # Clean up
    python examples/init_db.py
    ```
 
-5. **Run an echo test.**
+5. **Run the system.**
 
    ```bash
-   python production_launcher.py
+   python run_system.py
    ```
 
-   The script reads `config/llm_tiers.yaml` and prints which model would be chosen from the cheapest tier.
+   The script launches the MAS system and prints status information.
 
 ## Operations & observability
 
