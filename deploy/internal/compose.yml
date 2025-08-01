@@ -9,7 +9,7 @@ services:
     image: python:3.10-slim
     volumes:
       - ../../:/app
-    working_dir: /app/root_mas
+    working_dir: /app
     command: ["python", "run_system.py", "--goal", "echo"]
     env_file:
       - .env
