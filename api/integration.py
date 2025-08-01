@@ -2,8 +2,6 @@
 Интеграция API с существующей MAS системой
 """
 
-import os
-import asyncio
 import logging
 from typing import Optional
 
