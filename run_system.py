@@ -72,7 +72,7 @@ async def main():
         if mode == "full" and os.getenv("TELEGRAM_BOT_TOKEN"):
             # Запуск Telegram бота (через API)
             logger.info("📱 Запуск Telegram бота...")
-            bot_task = asyncio.create_task(run_telegram_bot())
+            bot_task = asyncio.create_task(run_telegram_bot_wrapper())
             tasks.append(("Telegram Bot", bot_task))
         
         if not tasks:
@@ -134,6 +134,16 @@ async def run_api_server():
     await server.serve()
 
 
+async def run_telegram_bot_wrapper():
+    """Обертка для запуска Telegram бота с обработкой ошибок"""
+    logger = logging.getLogger(__name__)
+    try:
+        await run_telegram_bot()
+    except Exception as e:
+        logger.error(f"❌ Telegram бот завершился с ошибкой: {e}")
+        # Не прерываем работу всей системы
+
+
 async def run_telegram_bot():
     """Запуск Telegram бота через API"""
     from tools.modern_telegram_bot import ModernTelegramBot
@@ -162,7 +172,8 @@ async def run_telegram_bot():
         
     except Exception as e:
         logger.error(f"❌ Ошибка запуска Telegram бота: {e}")
-        raise
+        # Не прерываем работу всей системы из-за ошибки бота
+        logger.warning("⚠️ Система продолжит работу без Telegram бота")
     finally:
         if 'api_client' in locals():
             await api_client.stop()

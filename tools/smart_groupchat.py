@@ -55,13 +55,29 @@ class SmartGroupChatManager:
             config = load_config()
             agents_config = config.get('agents', {})
             
+            # Загружаем конфигурацию tier'ов
+            tiers_config = config.get('llm_tiers', {})
+            
             # Создаем экземпляры агентов
             for agent_name, agent_info in agents_config.items():
                 if agent_name in AGENT_CLASSES:
                     agent_class = AGENT_CLASSES[agent_name]
                     tier = agent_info.get('default_tier', 'cheap')
-                    self.agents[agent_name] = agent_class(tier=tier)
-                    self.logger.info(f"✅ Создан агент: {agent_name}")
+                    
+                    # Получаем модель из конфигурации tier'а
+                    tier_info = tiers_config.get('tiers', {}).get(tier, [])
+                    if tier_info and isinstance(tier_info, list) and len(tier_info) > 0:
+                        # Берем первую модель из списка для данного tier'а
+                        model_info = tier_info[0]
+                        provider = model_info.get('provider', 'openrouter')
+                        model_name = model_info.get('name', 'gpt-3.5-turbo')
+                        model = f"{provider}/{model_name}" if provider != 'openai' else model_name
+                    else:
+                        # Дефолтная модель
+                        model = 'openrouter/gpt-3.5-turbo'
+                    
+                    self.agents[agent_name] = agent_class(model=model, tier=tier)
+                    self.logger.info(f"✅ Создан агент: {agent_name} (модель: {model}, tier: {tier})")
         
         # Настраиваем маршрутизацию по умолчанию если не задана
         if not self.routing:
