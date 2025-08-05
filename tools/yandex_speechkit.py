@@ -27,7 +27,7 @@ class YandexSpeechKit:
         self.tts_url = "https://tts.api.cloud.yandex.net/speech/v1/tts:synthesize"
         
         if not self.api_key or not self.folder_id:
-            logger.warning("⚠️ Yandex SpeechKit не настроен (нет API_KEY или FOLDER_ID)")
+            logger.info("ℹ️ Yandex SpeechKit не настроен. Для включения голосовых функций добавьте YANDEX_API_KEY и YANDEX_FOLDER_ID в .env")
     
     async def speech_to_text(
         self, 

@@ -2,12 +2,17 @@
 Smart GroupChat Manager
 Интеллектуальный менеджер групповых чатов с реальной LLM коммуникацией
 """
-import asyncio
+import os
 import json
+import asyncio
 import logging
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
+from pathlib import Path
+
+# Импорт AutoGen v0.4+ с поддержкой новых API
+import autogen
 
 
 @dataclass
@@ -103,7 +108,7 @@ class SmartGroupChatManager:
             sender=user_id,
             recipient="communicator",
             content=content,
-            timestamp=datetime.now(),
+            timestamp=datetime.now(timezone.utc),
             message_type="text"
         )
         
@@ -165,7 +170,7 @@ class SmartGroupChatManager:
                 sender=agent_name,
                 recipient=message.sender,
                 content=response,
-                timestamp=datetime.now(),
+                timestamp=datetime.now(timezone.utc),
                 message_type="text"
             )
             
@@ -282,7 +287,7 @@ class SmartGroupChatManager:
             "description": task_description,
             "assigned_agent": assigned_agent,
             "status": "pending",
-            "created_at": datetime.now(),
+            "created_at": datetime.now(timezone.utc),
             "result": None
         }
         
@@ -293,7 +298,7 @@ class SmartGroupChatManager:
             sender="system",
             recipient=assigned_agent,
             content=f"Новая задача: {task_description}",
-            timestamp=datetime.now(),
+            timestamp=datetime.now(timezone.utc),
             message_type="task",
             metadata={"task_id": task_id}
         )
@@ -324,7 +329,7 @@ class SmartGroupChatManager:
             "conversation_length": len(self.conversation_history),
             "active_tasks": len(self.active_tasks),
             "system_health": "healthy",
-            "uptime": datetime.now().isoformat()
+            "uptime": datetime.now(timezone.utc).isoformat()
         }
 
 
