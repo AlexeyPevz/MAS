@@ -20,8 +20,77 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+def cleanup_old_processes():
+    """Очистка старых процессов перед запуском"""
+    import subprocess
+    try:
+        import psutil
+    except ImportError:
+        psutil = None
+    
+    logger = logging.getLogger(__name__)
+    
+    if psutil:
+        try:
+            # Получаем текущий PID
+            current_pid = os.getpid()
+            
+            # Сначала пытаемся очистить зомби-процессы
+            for proc in psutil.process_iter(['pid', 'ppid', 'name', 'status']):
+                try:
+                    if proc.info['status'] == psutil.STATUS_ZOMBIE:
+                        logger.info(f"🧟 Обнаружен зомби-процесс PID: {proc.info['pid']}")
+                        # Зомби нельзя убить напрямую, но можно попытаться очистить через wait
+                        try:
+                            os.waitpid(proc.info['pid'], os.WNOHANG)
+                        except:
+                            pass
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+            
+            # Теперь ищем и останавливаем старые процессы Python с run_system.py
+            for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                try:
+                    if proc.info['pid'] != current_pid and proc.info['name'] and 'python' in proc.info['name'].lower():
+                        cmdline = proc.info.get('cmdline', [])
+                        if cmdline and any('run_system.py' in arg for arg in cmdline):
+                            logger.info(f"🧹 Останавливаем старый процесс PID: {proc.info['pid']}")
+                            proc.terminate()
+                            try:
+                                proc.wait(timeout=3)
+                            except psutil.TimeoutExpired:
+                                proc.kill()
+                                proc.wait(timeout=1)
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+                    
+        except Exception as e:
+            logger.error(f"Ошибка при очистке процессов: {e}")
+    else:
+        # Fallback если psutil не установлен
+        logger.warning("⚠️ psutil не установлен, используем pkill")
+        subprocess.run(['pkill', '-f', 'python.*run_system.py', '-F', str(os.getpid())], 
+                      capture_output=True, text=True)
+
+
 async def main():
     """Главная функция запуска системы"""
+    
+    # Настраиваем обработчик SIGCHLD для предотвращения зомби
+    def handle_sigchld(signum, frame):
+        try:
+            while True:
+                # Очищаем завершившиеся дочерние процессы
+                pid, status = os.waitpid(-1, os.WNOHANG)
+                if pid == 0:
+                    break
+        except OSError:
+            pass
+    
+    signal.signal(signal.SIGCHLD, handle_sigchld)
+    
+    # Очищаем старые процессы
+    cleanup_old_processes()
     
     # Настройка логирования с ротацией
     from tools.logging_config import setup_production_logging, setup_development_logging, log_monitor
@@ -72,7 +141,7 @@ async def main():
         if mode == "full" and os.getenv("TELEGRAM_BOT_TOKEN"):
             # Запуск Telegram бота (через API)
             logger.info("📱 Запуск Telegram бота...")
-            bot_task = asyncio.create_task(run_telegram_bot())
+            bot_task = asyncio.create_task(run_telegram_bot_wrapper())
             tasks.append(("Telegram Bot", bot_task))
         
         if not tasks:
@@ -134,6 +203,16 @@ async def run_api_server():
     await server.serve()
 
 
+async def run_telegram_bot_wrapper():
+    """Обертка для запуска Telegram бота с обработкой ошибок"""
+    logger = logging.getLogger(__name__)
+    try:
+        await run_telegram_bot()
+    except Exception as e:
+        logger.error(f"❌ Telegram бот завершился с ошибкой: {e}")
+        # Не прерываем работу всей системы
+
+
 async def run_telegram_bot():
     """Запуск Telegram бота через API"""
     from tools.modern_telegram_bot import ModernTelegramBot
@@ -162,7 +241,8 @@ async def run_telegram_bot():
         
     except Exception as e:
         logger.error(f"❌ Ошибка запуска Telegram бота: {e}")
-        raise
+        # Не прерываем работу всей системы из-за ошибки бота
+        logger.warning("⚠️ Система продолжит работу без Telegram бота")
     finally:
         if 'api_client' in locals():
             await api_client.stop()
@@ -189,6 +269,18 @@ if __name__ == "__main__":
     if sys.version_info < (3, 9):
         print("❌ Требуется Python 3.9 или выше")
         sys.exit(1)
+    
+    if sys.version_info >= (3, 13):
+        print("⚠️  ВНИМАНИЕ: Python 3.13+ имеет проблемы совместимости с некоторыми зависимостями!")
+        print("⚠️  Рекомендуется использовать Python 3.10 - 3.11")
+        print("⚠️  Известные проблемы:")
+        print("   - python-telegram-bot не совместим с 3.13")
+        print("   - Некоторые пакеты autogen могут работать нестабильно")
+        print()
+        response = input("Продолжить на свой риск? (y/N): ")
+        if response.lower() != 'y':
+            print("👋 Установка отменена. Рекомендуем использовать Python 3.11")
+            sys.exit(0)
     
     try:
         asyncio.run(main())

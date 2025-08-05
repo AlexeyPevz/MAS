@@ -7,6 +7,7 @@ import os
 import logging
 from typing import Callable, Optional, Any, Dict
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 # Telegram imports с обработкой ошибок
 try:
@@ -41,6 +42,26 @@ class ModernTelegramBot:
         self.enable_voice = enable_voice
         self.logger = logging.getLogger(__name__)
         
+        # Загружаем таймзону из конфигурации
+        try:
+            from config.config_loader import load_config
+            config = load_config()
+            proactive_config = config.get('proactive_mode', {})
+            personalization = proactive_config.get('personalization', {})
+            tz_str = personalization.get('timezone', 'UTC')
+            
+            # Преобразуем UTC+3 в Europe/Moscow или подобное
+            if tz_str == 'UTC+3':
+                self.timezone = ZoneInfo('Europe/Moscow')
+            elif tz_str.startswith('UTC'):
+                # Для других UTC смещений используем UTC по умолчанию
+                self.timezone = ZoneInfo('UTC')
+            else:
+                self.timezone = ZoneInfo(tz_str)
+        except Exception as e:
+            self.logger.warning(f"⚠️ Не удалось загрузить таймзону: {e}, используем UTC")
+            self.timezone = ZoneInfo('UTC')
+        
         # Создаем Application
         self.application = Application.builder().token(token).build()
         
@@ -49,7 +70,7 @@ class ModernTelegramBot:
             "messages_received": 0,
             "messages_sent": 0,
             "errors": 0,
-            "start_time": datetime.now()
+            "start_time": datetime.now(self.timezone)
         }
         
         # Настраиваем обработчики
@@ -126,7 +147,7 @@ class ModernTelegramBot:
     
     async def status_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Обработка команды /status"""
-        uptime = datetime.now() - self.stats["start_time"]
+        uptime = datetime.now(self.timezone) - self.stats["start_time"]
         
         status_message = f"""
 📊 Статус MAS System
@@ -277,7 +298,7 @@ class ModernTelegramBot:
         """Получение статистики бота"""
         return {
             **self.stats,
-            "uptime": str(datetime.now() - self.stats["start_time"])
+            "uptime": str(datetime.now(self.timezone) - self.stats["start_time"])
         }
 
 

@@ -75,7 +75,7 @@ personalization:
   preferred_communication_style: "professional_friendly"
   preferred_detail_level: "medium"
   working_hours: "09:00-18:00"
-  timezone: "UTC+3"
+  timezone: "Europe/Moscow"
   
   # Области интересов (обновляются на основе активности)
   interests:

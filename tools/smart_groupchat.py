@@ -2,12 +2,17 @@
 Smart GroupChat Manager
 Интеллектуальный менеджер групповых чатов с реальной LLM коммуникацией
 """
-import asyncio
+import os
 import json
+import asyncio
 import logging
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
+from pathlib import Path
+
+# Импорт AutoGen v0.4+ с поддержкой новых API
+import autogen
 
 
 @dataclass
@@ -55,13 +60,29 @@ class SmartGroupChatManager:
             config = load_config()
             agents_config = config.get('agents', {})
             
+            # Загружаем конфигурацию tier'ов
+            tiers_config = config.get('llm_tiers', {})
+            
             # Создаем экземпляры агентов
             for agent_name, agent_info in agents_config.items():
                 if agent_name in AGENT_CLASSES:
                     agent_class = AGENT_CLASSES[agent_name]
                     tier = agent_info.get('default_tier', 'cheap')
-                    self.agents[agent_name] = agent_class(tier=tier)
-                    self.logger.info(f"✅ Создан агент: {agent_name}")
+                    
+                    # Получаем модель из конфигурации tier'а
+                    tier_info = tiers_config.get('tiers', {}).get(tier, [])
+                    if tier_info and isinstance(tier_info, list) and len(tier_info) > 0:
+                        # Берем первую модель из списка для данного tier'а
+                        model_info = tier_info[0]
+                        provider = model_info.get('provider', 'openrouter')
+                        model_name = model_info.get('name', 'gpt-3.5-turbo')
+                        model = f"{provider}/{model_name}" if provider != 'openai' else model_name
+                    else:
+                        # Дефолтная модель
+                        model = 'openrouter/gpt-3.5-turbo'
+                    
+                    self.agents[agent_name] = agent_class(model=model, tier=tier)
+                    self.logger.info(f"✅ Создан агент: {agent_name} (модель: {model}, tier: {tier})")
         
         # Настраиваем маршрутизацию по умолчанию если не задана
         if not self.routing:
@@ -87,7 +108,7 @@ class SmartGroupChatManager:
             sender=user_id,
             recipient="communicator",
             content=content,
-            timestamp=datetime.now(),
+            timestamp=datetime.now(timezone.utc),
             message_type="text"
         )
         
@@ -149,7 +170,7 @@ class SmartGroupChatManager:
                 sender=agent_name,
                 recipient=message.sender,
                 content=response,
-                timestamp=datetime.now(),
+                timestamp=datetime.now(timezone.utc),
                 message_type="text"
             )
             
@@ -266,7 +287,7 @@ class SmartGroupChatManager:
             "description": task_description,
             "assigned_agent": assigned_agent,
             "status": "pending",
-            "created_at": datetime.now(),
+            "created_at": datetime.now(timezone.utc),
             "result": None
         }
         
@@ -277,7 +298,7 @@ class SmartGroupChatManager:
             sender="system",
             recipient=assigned_agent,
             content=f"Новая задача: {task_description}",
-            timestamp=datetime.now(),
+            timestamp=datetime.now(timezone.utc),
             message_type="task",
             metadata={"task_id": task_id}
         )
@@ -308,7 +329,7 @@ class SmartGroupChatManager:
             "conversation_length": len(self.conversation_history),
             "active_tasks": len(self.active_tasks),
             "system_health": "healthy",
-            "uptime": datetime.now().isoformat()
+            "uptime": datetime.now(timezone.utc).isoformat()
         }
 
 

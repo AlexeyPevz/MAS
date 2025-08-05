@@ -7,7 +7,7 @@ import aiohttp
 import asyncio
 import logging
 from typing import Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 logger = logging.getLogger(__name__)
@@ -53,7 +53,7 @@ class TelegramAPIClient:
                 "user_id": user_id,
                 "metadata": {
                     "source": "telegram",
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": datetime.now(timezone.utc).isoformat()
                 }
             }
             

@@ -8,7 +8,7 @@ import asyncio
 import logging
 import time
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -232,7 +232,7 @@ class APIState:
         self.mas_manager: Optional[SmartGroupChatManager] = None
         self.telegram_bot: Optional[ModernTelegramBot] = None
         self.websocket_connections: List[WebSocket] = []
-        self.start_time = datetime.now()
+        self.start_time = datetime.now(timezone.utc)
         self.message_history: List[Dict[str, Any]] = []
 
 
@@ -340,7 +340,7 @@ async def root():
         "message": "Root-MAS API",
         "version": "1.0.0",
         "status": "running",
-        "uptime": str(datetime.now() - api_state.start_time)
+        "uptime": str(datetime.now(timezone.utc) - api_state.start_time)
     }
 
 
@@ -349,7 +349,7 @@ async def health_check():
     """Health check для мониторинга"""
     return {
         "status": "healthy",
-        "timestamp": datetime.now(),
+        "timestamp": datetime.now(timezone.utc),
         "components": {
             "mas_system": api_state.mas_manager is not None,
             "telegram_bot": api_state.telegram_bot is not None,
@@ -645,7 +645,7 @@ async def get_dashboard_metrics():
     try:
         import psutil
         
-        uptime = str(datetime.now() - api_state.start_time)
+        uptime = str(datetime.now(timezone.utc) - api_state.start_time)
         memory = f"{psutil.virtual_memory().percent:.1f}%"
         cpu = psutil.cpu_percent(interval=1)
         
@@ -662,7 +662,7 @@ async def get_dashboard_metrics():
         return SystemMetrics(
             total_messages=len(api_state.message_history),
             active_agents=12 if api_state.mas_manager else 0,
-            uptime=str(datetime.now() - api_state.start_time)
+            uptime=str(datetime.now(timezone.utc) - api_state.start_time)
         )
     except Exception as e:
         logger.error(f"❌ Ошибка получения метрик: {e}")
@@ -703,8 +703,8 @@ async def get_projects():
                 name="Root-MAS Development",
                 description="Разработка многоагентной системы",
                 status="active",
-                created_at=datetime.now(),
-                updated_at=datetime.now()
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc)
             )
         ]
         
@@ -726,7 +726,7 @@ async def get_logs(level: str = "INFO", limit: int = 100):
         # Пока заглушка, потом интегрируем с файлами логов
         logs = [
             {
-                "timestamp": datetime.now(),
+                "timestamp": datetime.now(timezone.utc),
                 "level": "INFO",
                 "message": "Система запущена успешно",
                 "component": "api"

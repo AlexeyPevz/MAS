@@ -193,10 +193,8 @@ class BudgetManagerAgent(BaseAgent):
         self._costs: Dict[str, float] = {}
     
     def track_cost(self, agent_name: str, cost: float) -> None:
-        """Track API cost for an agent."""
-        if agent_name not in self._costs:
-            self._costs[agent_name] = 0.0
-        self._costs[agent_name] += cost
+        """Track cost for an agent."""
+        self._costs[agent_name] = self._costs.get(agent_name, 0) + cost
     
     def get_total_cost(self) -> float:
         """Get total cost across all agents."""
@@ -207,25 +205,29 @@ class BudgetManagerAgent(BaseAgent):
         return dict(self._costs)
 
 
+# Определение AGENT_CLASSES для использования в других модулях
+AGENT_CLASSES = {
+    "meta": MetaAgent,
+    "coordination": CoordinationAgent,
+    "prompt_builder": PromptBuilderAgent,
+    "model_selector": ModelSelectorAgent,
+    "agent_builder": AgentBuilderAgent,
+    "instance_factory": InstanceFactoryAgent,
+    "researcher": ResearcherAgent,
+    "fact_checker": FactCheckerAgent,
+    "multitool": MultiToolAgent,
+    "multi_tool": MultiToolAgent,  # Добавлено: multi_tool
+    "workflow_builder": WfBuilderAgent,  # Исправлено: workflow_builder вместо wf_builder
+    "webapp_builder": WebAppBuilderAgent,
+    "communicator": CommunicatorAgent,
+    "budget_manager": BudgetManagerAgent,
+}
+
+
 def create_agents(config: AgentsConfig) -> Dict[str, AssistantAgent]:
     """Instantiate agents from configuration."""
     agents: Dict[str, AssistantAgent] = {}
-    mapping = {
-        "meta": MetaAgent,
-        "coordination": CoordinationAgent,
-        "prompt_builder": PromptBuilderAgent,
-        "model_selector": ModelSelectorAgent,
-        "agent_builder": AgentBuilderAgent,
-        "instance_factory": InstanceFactoryAgent,
-        "researcher": ResearcherAgent,
-        "fact_checker": FactCheckerAgent,
-        "multitool": MultiToolAgent,
-        "multi_tool": MultiToolAgent,  # Добавлено: multi_tool
-        "workflow_builder": WfBuilderAgent,  # Исправлено: workflow_builder вместо wf_builder
-        "webapp_builder": WebAppBuilderAgent,
-        "communicator": CommunicatorAgent,
-        "budget_manager": BudgetManagerAgent,
-    }
+    mapping = AGENT_CLASSES  # Используем AGENT_CLASSES вместо локального mapping
     for name, definition in config.agents.items():
         cls = mapping.get(name)
         if cls is None:
