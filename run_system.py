@@ -20,8 +20,44 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+def cleanup_old_processes():
+    """Очистка старых процессов перед запуском"""
+    import subprocess
+    import psutil
+    
+    logger = logging.getLogger(__name__)
+    
+    try:
+        # Получаем текущий PID
+        current_pid = os.getpid()
+        
+        # Ищем все процессы Python с run_system.py
+        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+            try:
+                if proc.info['pid'] != current_pid and proc.info['name'] and 'python' in proc.info['name'].lower():
+                    cmdline = proc.info.get('cmdline', [])
+                    if cmdline and any('run_system.py' in arg for arg in cmdline):
+                        logger.info(f"🧹 Останавливаем старый процесс PID: {proc.info['pid']}")
+                        proc.terminate()
+                        try:
+                            proc.wait(timeout=3)
+                        except psutil.TimeoutExpired:
+                            proc.kill()
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+                
+    except ImportError:
+        # Fallback если psutil не установлен
+        logger.warning("⚠️ psutil не установлен, используем pkill")
+        subprocess.run(['pkill', '-f', 'python.*run_system.py', '-F', str(current_pid)], 
+                      capture_output=True, text=True)
+
+
 async def main():
     """Главная функция запуска системы"""
+    
+    # Очищаем старые процессы
+    cleanup_old_processes()
     
     # Настройка логирования с ротацией
     from tools.logging_config import setup_production_logging, setup_development_logging, log_monitor
@@ -200,6 +236,18 @@ if __name__ == "__main__":
     if sys.version_info < (3, 9):
         print("❌ Требуется Python 3.9 или выше")
         sys.exit(1)
+    
+    if sys.version_info >= (3, 13):
+        print("⚠️  ВНИМАНИЕ: Python 3.13+ имеет проблемы совместимости с некоторыми зависимостями!")
+        print("⚠️  Рекомендуется использовать Python 3.10 - 3.11")
+        print("⚠️  Известные проблемы:")
+        print("   - python-telegram-bot не совместим с 3.13")
+        print("   - Некоторые пакеты autogen могут работать нестабильно")
+        print()
+        response = input("Продолжить на свой риск? (y/N): ")
+        if response.lower() != 'y':
+            print("👋 Установка отменена. Рекомендуем использовать Python 3.11")
+            sys.exit(0)
     
     try:
         asyncio.run(main())
