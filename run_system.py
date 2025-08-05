@@ -23,38 +23,71 @@ load_dotenv()
 def cleanup_old_processes():
     """Очистка старых процессов перед запуском"""
     import subprocess
-    import psutil
+    try:
+        import psutil
+    except ImportError:
+        psutil = None
     
     logger = logging.getLogger(__name__)
     
-    try:
-        # Получаем текущий PID
-        current_pid = os.getpid()
-        
-        # Ищем все процессы Python с run_system.py
-        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
-            try:
-                if proc.info['pid'] != current_pid and proc.info['name'] and 'python' in proc.info['name'].lower():
-                    cmdline = proc.info.get('cmdline', [])
-                    if cmdline and any('run_system.py' in arg for arg in cmdline):
-                        logger.info(f"🧹 Останавливаем старый процесс PID: {proc.info['pid']}")
-                        proc.terminate()
+    if psutil:
+        try:
+            # Получаем текущий PID
+            current_pid = os.getpid()
+            
+            # Сначала пытаемся очистить зомби-процессы
+            for proc in psutil.process_iter(['pid', 'ppid', 'name', 'status']):
+                try:
+                    if proc.info['status'] == psutil.STATUS_ZOMBIE:
+                        logger.info(f"🧟 Обнаружен зомби-процесс PID: {proc.info['pid']}")
+                        # Зомби нельзя убить напрямую, но можно попытаться очистить через wait
                         try:
-                            proc.wait(timeout=3)
-                        except psutil.TimeoutExpired:
-                            proc.kill()
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                pass
-                
-    except ImportError:
+                            os.waitpid(proc.info['pid'], os.WNOHANG)
+                        except:
+                            pass
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+            
+            # Теперь ищем и останавливаем старые процессы Python с run_system.py
+            for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                try:
+                    if proc.info['pid'] != current_pid and proc.info['name'] and 'python' in proc.info['name'].lower():
+                        cmdline = proc.info.get('cmdline', [])
+                        if cmdline and any('run_system.py' in arg for arg in cmdline):
+                            logger.info(f"🧹 Останавливаем старый процесс PID: {proc.info['pid']}")
+                            proc.terminate()
+                            try:
+                                proc.wait(timeout=3)
+                            except psutil.TimeoutExpired:
+                                proc.kill()
+                                proc.wait(timeout=1)
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+                    
+        except Exception as e:
+            logger.error(f"Ошибка при очистке процессов: {e}")
+    else:
         # Fallback если psutil не установлен
         logger.warning("⚠️ psutil не установлен, используем pkill")
-        subprocess.run(['pkill', '-f', 'python.*run_system.py', '-F', str(current_pid)], 
+        subprocess.run(['pkill', '-f', 'python.*run_system.py', '-F', str(os.getpid())], 
                       capture_output=True, text=True)
 
 
 async def main():
     """Главная функция запуска системы"""
+    
+    # Настраиваем обработчик SIGCHLD для предотвращения зомби
+    def handle_sigchld(signum, frame):
+        try:
+            while True:
+                # Очищаем завершившиеся дочерние процессы
+                pid, status = os.waitpid(-1, os.WNOHANG)
+                if pid == 0:
+                    break
+        except OSError:
+            pass
+    
+    signal.signal(signal.SIGCHLD, handle_sigchld)
     
     # Очищаем старые процессы
     cleanup_old_processes()
