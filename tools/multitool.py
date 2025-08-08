@@ -16,7 +16,10 @@ import time
 try:
     import requests  # type: ignore
 except ImportError:  # pragma: no cover - optional dependency
-    requests = None  # type: ignore
+    from types import SimpleNamespace
+    def _not_installed(*_args, **_kwargs):  # pragma: no cover
+        raise RuntimeError("requests is required for this operation")
+    requests = SimpleNamespace(post=_not_installed, request=_not_installed)  # type: ignore
 
 BASE_URL = os.getenv("MULTITOOL_URL", "http://localhost:8080")
 API_KEY = os.getenv("MULTITOOL_API_KEY", "")

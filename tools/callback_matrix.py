@@ -9,39 +9,34 @@ GroupChatManager может использовать этот словарь, ч
 """
 
 from typing import Callable, Dict
-from .callbacks import (
-    route_instance_creation,
-    route_workflow,
-    route_missing_tool,
-    retry_with_higher_tier_callback,
-    budget_guard_callback,
-    outgoing_to_telegram,
-    research_validation_cycle,
-)
 
-
-# Сопоставление имени события и соответствующей callback‑функции
-CALLBACK_MATRIX: Dict[str, Callable[..., None]] = {
-    "CREATE_INTERNAL": route_instance_creation,
-    "CREATE_CLIENT": route_instance_creation,
-    "CREATE_WORKFLOW": route_workflow,
-    "MISSING_TOOL": route_missing_tool,
-    "RETRY_WITH_HIGHER_TIER": retry_with_higher_tier_callback,
-    "BUDGET_GUARD": budget_guard_callback,
-    "OUTGOING_TO_TELEGRAM": outgoing_to_telegram,
-    "RESEARCH_TASK": research_validation_cycle,
+# Сопоставление имени события и имени callback‑функции в tools.callbacks
+CALLBACK_NAMES: Dict[str, str] = {
+    "CREATE_INTERNAL": "route_instance_creation",
+    "CREATE_CLIENT": "route_instance_creation",
+    "CREATE_WORKFLOW": "route_workflow",
+    "MISSING_TOOL": "route_missing_tool",
+    "RETRY_WITH_HIGHER_TIER": "retry_with_higher_tier_callback",
+    "BUDGET_GUARD": "budget_guard_callback",
+    "OUTGOING_TO_TELEGRAM": "outgoing_to_telegram",
+    "RESEARCH_TASK": "research_validation_cycle",
 }
 
 
 def handle_event(event_name: str, *args, **kwargs) -> None:
     """Вызвать callback, ассоциированный с событием.
 
-    Args:
-        event_name: имя события
-        *args: позиционные аргументы для callback
-        **kwargs: именованные аргументы
+    Динамически извлекает функцию из модуля tools.callbacks, чтобы
+    поддерживать monkeypatch в тестах.
     """
-    callback = CALLBACK_MATRIX.get(event_name)
-    if callback is None:
+    from tools import callbacks  # импорт внутри для актуальных ссылок
+
+    func_name = CALLBACK_NAMES.get(event_name)
+    if not func_name:
         raise ValueError(f"Неизвестный callback для события: {event_name}")
+
+    callback: Callable[..., None] | None = getattr(callbacks, func_name, None)
+    if callback is None:
+        raise ValueError(f"Callback '{func_name}' не найден в tools.callbacks")
+
     callback(*args, **kwargs)

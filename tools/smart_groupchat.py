@@ -11,8 +11,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-# Импорт AutoGen v0.4+ с поддержкой новых API
-import autogen
+# AutoGen v0.4+ is used via autogen-agentchat in agent implementations.
+# No direct imports from legacy autogen here.
 
 
 @dataclass
@@ -113,6 +113,7 @@ class SmartGroupChatManager:
         )
         
         self.conversation_history.append(user_message)
+        self._trim_history()
         
         # Начинаем обработку с Communicator агента
         try:
@@ -134,11 +135,10 @@ class SmartGroupChatManager:
             # Создаем контекст для агента
             context = self._build_context_for_agent(agent_name, message)
             
-            # Генерируем ответ от агента
-            if hasattr(agent, 'generate_reply') and callable(agent.generate_reply):
-                # Реальный AutoGen агент с LLM
+            # Генерируем ответ от агента (async‑путь для v0.4+)
+            if hasattr(agent, 'generate_reply_async') and asyncio.iscoroutinefunction(getattr(agent, 'generate_reply_async')):
                 try:
-                    response = agent.generate_reply(
+                    response = await agent.generate_reply_async(
                         messages=context,
                         sender=None
                     )
@@ -151,16 +151,20 @@ class SmartGroupChatManager:
                     if hasattr(agent, 'remember'):
                         agent.remember(f"last_interaction_{message.sender}", message.content)
                         agent.remember(f"last_response_{agent_name}", response)
-                        
                 except Exception as e:
                     self.logger.error(f"❌ LLM вызов агента {agent_name} failed: {e}")
-                    # Проверяем, это проблема с новым API?
                     if "on_messages" in str(e) or "autogen" in str(e).lower():
                         self.logger.warning(f"⚠️ Возможна проблема с AutoGen v0.4 API, используем fallback")
-                    response = f"[{agent_name}] ⚠️ Ошибка LLM: пробую альтернативную модель..."
-                    
-                    # Пробуем fallback ответ
                     response = self._generate_fallback_response(agent_name, message.content)
+            elif hasattr(agent, 'generate_reply') and callable(getattr(agent, 'generate_reply')):
+                # Легаси‑путь: синхронные агенты, исполняем в отдельном потоке чтобы не блокировать event loop
+                loop = asyncio.get_running_loop()
+                response = await loop.run_in_executor(
+                    None,
+                    lambda: agent.generate_reply(messages=context, sender=None)
+                )
+                if not response:
+                    response = f"[{agent_name}] Сообщение обработано"
             else:
                 # Fallback для mock агентов
                 response = self._generate_fallback_response(agent_name, message.content)
@@ -175,6 +179,9 @@ class SmartGroupChatManager:
             )
             
             self.conversation_history.append(agent_message)
+            
+            # Поддерживаем ограничение памяти истории диалога
+            self._trim_history()
             
             # Определяем следующих агентов для маршрутизации
             next_agents = self.routing.get(agent_name, [])
@@ -332,6 +339,30 @@ class SmartGroupChatManager:
             "uptime": datetime.now(timezone.utc).isoformat()
         }
 
+    def _trim_history(self) -> None:
+        """Ограничить размер истории диалога до 2×max_conversation_length."""
+        limit = max(0, self.max_conversation_length * 2)
+        if limit and len(self.conversation_history) > limit:
+            # Оставляем последние limit сообщений
+            self.conversation_history = self.conversation_history[-limit:]
+
+    def receive(self, event: dict, sender: str | None = None) -> None:
+        """Получить событие от агента и маршрутизировать его через callback_matrix.
+
+        Ожидаемый формат события: {"event": "EVENT_NAME", "args": [..], "kwargs": {...}}
+        """
+        try:
+            name = event.get("event") if isinstance(event, dict) else None
+            if not name:
+                self.logger.warning("⚠️ Некорректное событие: %s", event)
+                return
+            args = event.get("args", [])
+            kwargs = event.get("kwargs", {})
+            from tools.callback_matrix import handle_event
+            handle_event(name, *args, **kwargs)
+        except Exception as exc:
+            self.logger.error("❌ Ошибка обработки события %s от %s: %s", event, sender, exc)
+
 
 class ConversationLogger:
     """Логирование разговоров для анализа"""
@@ -377,8 +408,13 @@ if __name__ == "__main__":
             self.name = name
             self.system_message = f"Вы - {name} агент."
         
+        async def generate_reply_async(self, messages=None, sender=None, config=None):
+            await asyncio.sleep(0)
+            return f"[{self.name}] Обработано {len(messages) if messages else 0} сообщений"
+        
+        # Легаси-совместимость
         def generate_reply(self, messages=None, sender=None):
-            return f"[{self.name}] Обработано {len(messages)} сообщений"
+            return f"[{self.name}] Обработано {len(messages) if messages else 0} сообщений"
     
     test_agents = {
         "communicator": MockAgent("Communicator"),

@@ -10,17 +10,22 @@ try:
     from autogen_ext.models.openai import OpenAIChatCompletionClient
     from autogen_core import CancellationToken
 except ImportError:
-    # Fallback для случая отсутствия autogen
-    class AssistantAgent:
+    # Полностью изолированный fallback без внешних импортов
+    class AssistantAgent:  # type: ignore
         def __init__(self, name, model_client=None, system_message="", *args, **kwargs):
             self.name = name
             self.model_client = model_client
             self.system_message = system_message
-        
+
         async def on_messages(self, messages, cancellation_token=None):
-            from autogen_agentchat.messages import TextMessage
-            from autogen_agentchat.base import Response
-            return Response(chat_message=TextMessage(content=f"[{self.name}] Mock response", source=self.name))
+            class _Resp:
+                def __init__(self, content: str) -> None:
+                    class _Msg:
+                        def __init__(self, c: str) -> None:
+                            self.content = c
+                    self.chat_message = _Msg(content)
+            # Простой мок-контент без зависимостей
+            return _Resp(content=f"[{self.name}] Mock response")
 
 from tools.prompt_io import read_prompt
 
@@ -76,7 +81,7 @@ class BaseAgent(AssistantAgent):
                 temperature=config_list.get("temperature", 0.7),
                 max_tokens=config_list.get("max_tokens", 2000)
             )
-        except:
+        except Exception:
             # Fallback на mock клиент
             model_client = None
 
@@ -104,7 +109,6 @@ class BaseAgent(AssistantAgent):
             messages = []
         
         try:
-            from autogen_agentchat.messages import TextMessage
             # Конвертируем старый формат сообщений в новый
             new_messages = []
             for msg in messages:
@@ -114,19 +118,37 @@ class BaseAgent(AssistantAgent):
                 else:
                     content = str(msg)
                     source = "user"
-                new_messages.append(TextMessage(content=content, source=source))
+                # Простейшая модель новых сообщений: список словарей
+                new_messages.append({"content": content, "source": source})
             
-            # Используем новый API
-            cancellation_token = CancellationToken()
-            response = await self.on_messages(new_messages, cancellation_token)
-            return response.chat_message.content
+            # Используем новый API, если он есть у родительского класса
+            if hasattr(super(), 'on_messages'):
+                cancellation_token = None
+                try:
+                    cancellation_token = CancellationToken()
+                except Exception:
+                    cancellation_token = None
+                response = await super().on_messages(new_messages, cancellation_token)
+                return getattr(getattr(response, 'chat_message', None), 'content', None) or ""
+            # Полностью fallback
+            return f"[{self.name}] Processed {len(new_messages)} messages"
         except Exception as e:
             print(f"Error in generate_reply_async: {e}")
             return f"[{self.name}] Error processing message"
 
     def generate_reply(self, messages=None, sender=None, config=None):
-        """Синхронная обертка для обратной совместимости"""
-        return asyncio.run(self.generate_reply_async(messages, sender, config))
+        """Безопасная синхронная обертка: не вызывает asyncio.run внутри event loop"""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        
+        if loop and loop.is_running():
+            # Внутри уже запущенного цикла — выполняем через executor блокирующий вызов
+            future = asyncio.run_coroutine_threadsafe(self.generate_reply_async(messages, sender, config), loop)
+            return future.result()
+        else:
+            return asyncio.run(self.generate_reply_async(messages, sender, config))
 
     # ------------------------------------------------------------------
     # Prompt helpers

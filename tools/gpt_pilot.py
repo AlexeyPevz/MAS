@@ -13,7 +13,10 @@ from typing import Dict, Any, Optional
 try:
     import requests  # type: ignore
 except ImportError:  # pragma: no cover - optional dependency
-    requests = None  # type: ignore
+    from types import SimpleNamespace
+    def _not_installed(*_args, **_kwargs):  # pragma: no cover
+        raise RuntimeError("requests is required for this operation")
+    requests = SimpleNamespace(post=_not_installed, get=_not_installed)  # type: ignore
 
 
 BASE_URL = os.getenv("GPT_PILOT_URL", "http://localhost:8000")

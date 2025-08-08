@@ -9,17 +9,20 @@ try:
     from autogen_ext.models.openai import OpenAIChatCompletionClient
     from autogen_core import CancellationToken
 except ImportError:
-    # Fallback для случая отсутствия autogen
-    class AssistantAgent:
+    # Полностью изолированный fallback без внешних импортов
+    class AssistantAgent:  # type: ignore
         def __init__(self, name, model_client=None, system_message="", *args, **kwargs):
             self.name = name
             self.model_client = model_client
             self.system_message = system_message
-        
         async def on_messages(self, messages, cancellation_token=None):
-            from autogen_agentchat.messages import TextMessage
-            from autogen_agentchat.base import Response
-            return Response(chat_message=TextMessage(content=f"[{self.name}] Mock response", source=self.name))
+            class _Resp:
+                def __init__(self, content: str) -> None:
+                    class _Msg:
+                        def __init__(self, c: str) -> None:
+                            self.content = c
+                    self.chat_message = _Msg(content)
+            return _Resp(content=f"[{self.name}] Mock response")
 
 from config.config_loader import AgentsConfig, AgentDefinition
 from .base import BaseAgent
@@ -27,7 +30,7 @@ from .base import BaseAgent
 
 @dataclass
 class MetaAgent(BaseAgent):
-    def __init__(self, model: str, tier: str = "premium"):
+    def __init__(self, model: str = "gpt-4o-mini", tier: str = "premium"):
         super().__init__("meta", model, tier)
 
     def create_plan(self, goal: str) -> list[str]:
@@ -42,7 +45,7 @@ class MetaAgent(BaseAgent):
 
 @dataclass
 class CoordinationAgent(BaseAgent):
-    def __init__(self, model: str, tier: str = "cheap"):
+    def __init__(self, model: str = "gpt-4o-mini", tier: str = "cheap"):
         super().__init__("coordination", model, tier)
         self.tasks: Dict[str, str] = {}
 
@@ -57,7 +60,7 @@ class CoordinationAgent(BaseAgent):
 
 @dataclass
 class PromptBuilderAgent(BaseAgent):
-    def __init__(self, model: str, tier: str = "standard"):
+    def __init__(self, model: str = "gpt-4o-mini", tier: str = "standard"):
         super().__init__("prompt_builder", model, tier)
 
     def create_prompt(self, agent_name: str, content: str) -> None:
@@ -85,7 +88,7 @@ class PromptBuilderAgent(BaseAgent):
 
 @dataclass
 class ModelSelectorAgent(BaseAgent):
-    def __init__(self, model: str, tier: str = "cheap"):
+    def __init__(self, model: str = "gpt-4o-mini", tier: str = "cheap"):
         super().__init__("model_selector", model, tier)
 
     def pick(self, tier: str, attempt: int = 0) -> Dict[str, str]:
@@ -97,7 +100,7 @@ class ModelSelectorAgent(BaseAgent):
 
 @dataclass
 class AgentBuilderAgent(BaseAgent):
-    def __init__(self, model: str, tier: str = "cheap"):
+    def __init__(self, model: str = "gpt-4o-mini", tier: str = "cheap"):
         super().__init__("agent_builder", model, tier)
 
     def build(self, spec: Dict[str, Any]) -> None:
@@ -108,7 +111,7 @@ class AgentBuilderAgent(BaseAgent):
 
 @dataclass
 class InstanceFactoryAgent(BaseAgent):
-    def __init__(self, model: str, tier: str = "cheap"):
+    def __init__(self, model: str = "gpt-4o-mini", tier: str = "cheap"):
         super().__init__("instance_factory", model, tier)
 
     def deploy(self, directory: str, env: Dict[str, str]) -> None:
@@ -119,7 +122,7 @@ class InstanceFactoryAgent(BaseAgent):
 
 @dataclass
 class ResearcherAgent(BaseAgent):
-    def __init__(self, model: str, tier: str = "standard"):
+    def __init__(self, model: str = "gpt-4o-mini", tier: str = "standard"):
         super().__init__("researcher", model, tier)
 
     def web_search(self, query: str, max_results: int = 5) -> Any:
@@ -130,7 +133,7 @@ class ResearcherAgent(BaseAgent):
 
 @dataclass
 class FactCheckerAgent(BaseAgent):
-    def __init__(self, model: str, tier: str = "standard"):
+    def __init__(self, model: str = "gpt-4o-mini", tier: str = "standard"):
         super().__init__("fact_checker", model, tier)
 
     def validate(self, facts: Any) -> bool:
@@ -140,7 +143,7 @@ class FactCheckerAgent(BaseAgent):
 
 @dataclass
 class MultiToolAgent(BaseAgent):
-    def __init__(self, model: str, tier: str = "cheap"):
+    def __init__(self, model: str = "gpt-4o-mini", tier: str = "cheap"):
         super().__init__("multitool", model, tier)
 
     def call_api(self, api_name: str, params: Dict[str, Any]) -> Any:
@@ -151,7 +154,7 @@ class MultiToolAgent(BaseAgent):
 
 @dataclass
 class WfBuilderAgent(BaseAgent):
-    def __init__(self, model: str, tier: str = "standard"):
+    def __init__(self, model: str = "gpt-4o-mini", tier: str = "standard"):
         super().__init__("wf_builder", model, tier)
 
     def create_workflow(self, spec: str, url: str, api_key: str) -> Any:
@@ -162,7 +165,7 @@ class WfBuilderAgent(BaseAgent):
 
 @dataclass
 class WebAppBuilderAgent(BaseAgent):
-    def __init__(self, model: str, tier: str = "standard"):
+    def __init__(self, model: str = "gpt-4o-mini", tier: str = "standard"):
         super().__init__("webapp_builder", model, tier)
 
     def create_app(self, spec: Dict[str, Any]) -> str:
@@ -178,7 +181,7 @@ class WebAppBuilderAgent(BaseAgent):
 
 @dataclass
 class CommunicatorAgent(BaseAgent):
-    def __init__(self, model: str, tier: str = "cheap"):
+    def __init__(self, model: str = "gpt-4o-mini", tier: str = "cheap"):
         super().__init__("communicator", model, tier)
 
     def forward(self, text: str) -> Dict[str, str]:
@@ -188,7 +191,7 @@ class CommunicatorAgent(BaseAgent):
 
 @dataclass  
 class BudgetManagerAgent(BaseAgent):
-    def __init__(self, model: str, tier: str = "cheap"):
+    def __init__(self, model: str = "gpt-4o-mini", tier: str = "cheap"):
         super().__init__("budget_manager", model, tier)
         self._costs: Dict[str, float] = {}
     
