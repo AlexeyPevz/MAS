@@ -4,41 +4,49 @@
 
 ## Сбор метрик
 
-Модуль `tools/observability.py` запускает HTTP‑сервер на порту `9000` и
-экспортирует несколько метрик:
+Есть два варианта экспорта метрик:
 
-- `mas_requests_total` – количество запросов к LLM;
-- `mas_tokens_total` – число использованных токенов;
-- `mas_errors_total` – число ошибок обработки;
-- `mas_task_seconds` – длительность выполнения задач;
-- `mas_response_seconds` – время ответа модели.
+1) Через встроенный эндпоинт FastAPI:
+   - `GET /metrics` — отдаёт метрики в формате Prometheus, если установлен `prometheus_client`.
+   - Удобно для единичного сервиса; Prometheus может скрапить сам API.
 
-Функции `record_request`, `record_tokens`, `record_error`,
-`observe_duration` и `observe_response_time` можно вызывать в агентах
-или коллбеках для учёта событий.
+2) Через отдельный HTTP‑сервер из `tools/observability.py` (заготовка):
+   - `start_metrics_server(port=9000)` поднимает экспортер на указанном порту.
+   - Метрики: `mas_requests_total`, `mas_tokens_total`, `mas_errors_total`, `mas_task_seconds`, `mas_response_seconds`.
+   - Вызовы `record_request`, `record_tokens`, `record_error`, `observe_duration`, `observe_response_time` — добавляйте в ключевые пути агентов/оркестрации.
 
-## Docker Compose
+## Prometheus
 
-В директории [`deploy/internal`](../deploy/internal) добавлены сервисы
-Prometheus и Grafana. Файл `prometheus.yml` настроен на сбор метрик с
-контейнера `autogen`:
+Пример scrape-конфига для встроенного эндпоинта `/metrics` (API на 8000 порту):
 
 ```yaml
 scrape_configs:
-  - job_name: mas
+  - job_name: mas_api
+    metrics_path: /metrics
     static_configs:
-      - targets: ['autogen:9000']
+      - targets: ['localhost:8000']
 ```
 
-Запустите сервисы:
+Пример scrape-конфига для отдельного экспортера на порту 9000:
+
+```yaml
+scrape_configs:
+  - job_name: mas_exporter
+    static_configs:
+      - targets: ['localhost:9000']
+```
+
+## Docker Compose
+
+В директории [`deploy/internal`](../deploy/internal) добавлены сервисы Prometheus и Grafana. Файл `prometheus.yml` можно
+настроить на сбор метрик либо с API (`:8000/metrics`), либо с экспортера (`:9000`).
+
+Запуск:
 
 ```bash
 cd deploy/internal
 docker compose up -d
 ```
 
-Prometheus будет доступен на <http://localhost:9090>, а Grafana – на
-<http://localhost:3000>. Добавьте источник данных Prometheus в Grafana и
-создайте дашборд с графиками по токенам, количеству запросов и времени
-ответа. Для оповещений можно настроить alert‑rules в Prometheus или
-использовать стандартные возможности Grafana.
+Prometheus: <http://localhost:9090>, Grafana: <http://localhost:3000>.
+Добавьте Prometheus в Grafana и создайте дашборд по токенам/запросам/времени ответа. Для оповещений используйте alert rules или Grafana Alerting.

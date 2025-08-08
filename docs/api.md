@@ -16,3 +16,20 @@
 | `examples/init_db.py` | Применение SQL‑миграций для инициализации базы данных. |
 
 Диаграмма архитектуры находится в файле [`architecture.svg`](architecture.svg). Она демонстрирует связи между слоями системы и внешними сервисами.
+
+## HTTP эндпоинты
+
+- `GET /` — базовая информация о сервисе
+- `GET /docs` — Swagger UI
+- `GET /pwa` — PWA интерфейс (статические файлы)
+- `WS /ws` — WebSocket для визуализации мыслительного процесса
+- `POST /api/v1/chat` — отправка сообщения в MAS
+- `GET /api/v1/status` — статус системы
+- `GET /api/v1/metrics/dashboard` — метрики для дашборда
+- `GET /metrics` — Prometheus‑метрики (если установлен `prometheus_client`)
+
+## AutoGen Studio Logger
+
+Проект включает `tools/studio_logger.py`, который записывает JSONL‑логи в `logs/studio.jsonl`. При наличии переменных
+`AUTOGEN_STUDIO_URL` и `AUTOGEN_STUDIO_API_KEY` логи можно отправить на внешний приёмник по адресу
+`{AUTOGEN_STUDIO_URL}/api/v1/logs/upload`.

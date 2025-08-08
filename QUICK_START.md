@@ -58,15 +58,21 @@ TELEGRAM_BOT_TOKEN=токен-от-BotFather
 # Режим запуска
 RUN_MODE=full         # full, api, mas
 ENVIRONMENT=production # production, development
+
+# AutoGen Studio logger (внешний приёмник логов)
+# AUTOGEN_STUDIO_URL=http://studio-host:8081
+# AUTOGEN_STUDIO_API_KEY=your-studio-key
 ```
 
 ## Использование
 
-### API интерфейс
+### API и интерфейс
 
 После запуска доступны:
-- http://localhost:8000 - API сервер
-- http://localhost:8000/docs - Swagger документация
+- http://localhost:8000 — API сервер
+- http://localhost:8000/docs — Swagger документация
+- http://localhost:8000/pwa — PWA интерфейс (или http://localhost:8000/app → редирект)
+- http://localhost:8000/metrics — Prometheus метрики
 
 ### Примеры запросов
 
