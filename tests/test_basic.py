@@ -1,6 +1,7 @@
 from tools.budget_manager import BudgetManager
 from tools.llm_selector import pick_config
 from tools.security import get_secret
+from tools.llm_selector import retry_with_higher_tier
 
 
 def test_budget_manager_needs_downgrade() -> None:

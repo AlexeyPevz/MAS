@@ -17,7 +17,7 @@ import httpx
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -666,6 +666,21 @@ async def get_dashboard_metrics():
         )
     except Exception as e:
         logger.error(f"❌ Ошибка получения метрик: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/metrics", include_in_schema=False)
+async def prometheus_metrics() -> PlainTextResponse:
+    """Экспорт Prometheus метрик, если клиент установлен."""
+    try:
+        from prometheus_client import REGISTRY, generate_latest, CONTENT_TYPE_LATEST  # type: ignore
+    except Exception:
+        raise HTTPException(status_code=404, detail="prometheus_client not installed")
+    try:
+        data = generate_latest(REGISTRY)
+        return PlainTextResponse(content=data.decode("utf-8"), media_type=CONTENT_TYPE_LATEST)
+    except Exception as e:
+        logger.error(f"❌ Ошибка генерации метрик: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

@@ -17,7 +17,14 @@ from typing import Dict, Any, Optional
 try:
     import requests  # type: ignore
 except ImportError:
-    requests = None  # type: ignore
+    from types import SimpleNamespace
+    def _not_installed(*_args, **_kwargs):  # pragma: no cover
+        raise RuntimeError("requests is required for this operation")
+    def _request(method, url, **kwargs):  # pragma: no cover
+        if method.upper() == "POST" and hasattr(requests, "post"):
+            return requests.post(url, **kwargs)  # type: ignore[attr-defined]
+        return _not_installed(method, url, **kwargs)
+    requests = SimpleNamespace(request=_request, post=_not_installed)  # type: ignore
 
 
 TIMEOUT = 10
