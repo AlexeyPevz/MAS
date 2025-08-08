@@ -10,7 +10,7 @@ budget_manager.py
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict
 
 # cost estimation
@@ -22,13 +22,13 @@ from .budget_storage import record_expense
 class BudgetManager:
     daily_limit: float  # дневной лимит стоимости (например, в долларах)
     spent_today: float = 0.0
-    last_reset: datetime = field(default_factory=datetime.utcnow)
+    last_reset: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def add_expense(self, amount: float) -> None:
         """Добавить расход к сегодняшнему счёту."""
         self._reset_if_needed()
         self.spent_today += amount
-        record_expense(datetime.utcnow(), amount)
+        record_expense(datetime.now(timezone.utc), amount)
 
     # ------------------------------------------------------------------
     # High-level helper
@@ -46,9 +46,9 @@ class BudgetManager:
         return cost
 
     def _reset_if_needed(self) -> None:
-        if datetime.utcnow() - self.last_reset >= timedelta(days=1):
+        if datetime.now(timezone.utc) - self.last_reset >= timedelta(days=1):
             self.spent_today = 0.0
-            self.last_reset = datetime.utcnow()
+            self.last_reset = datetime.now(timezone.utc)
 
     def needs_downgrade(self) -> bool:
         """Проверить, достигнут ли порог 80 % от дневного лимита."""

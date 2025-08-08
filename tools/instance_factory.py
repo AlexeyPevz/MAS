@@ -11,7 +11,7 @@ import subprocess
 import yaml  # type: ignore
 from pathlib import Path
 from typing import Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 from .security import get_secret
@@ -34,7 +34,7 @@ def auto_deploy_instance(instance_type: str = "internal", env_vars: Dict[str, st
         The name of the created instance.
     """
 
-    instance_name = f"{instance_type}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+    instance_name = f"{instance_type}_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
     env = env_vars.copy() if env_vars else {}
 
     for key in [
@@ -102,7 +102,7 @@ def deploy_instance(directory: str, env_vars: Dict[str, str], instance_name: str
     insts[instance_name] = {
         "type": instance_type,
         "endpoint": env_vars.get("MAS_ENDPOINT", ""),
-        "created_at": datetime.utcnow().isoformat() + "Z",
+        "created_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "status": "running" if healthy else "failed",
     }
     with inst_cfg_path.open("w", encoding="utf-8") as f:
