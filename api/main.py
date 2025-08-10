@@ -237,7 +237,7 @@ visualization_manager = VisualizationWebSocketManager()
 # Global state
 class APIState:
     def __init__(self):
-        self.mas_manager: Optional[SmartGroupChatManager] = None
+        self.groupchat_manager: Optional[SmartGroupChatManager] = None
         self.telegram_bot: Optional[ModernTelegramBot] = None
         self.websocket_connections: List[WebSocket] = []
         self.start_time = datetime.now(timezone.utc)
@@ -298,7 +298,7 @@ async def initialize_mas_system():
         logger.info("🔧 Инициализация MAS системы...")
         
         # Инициализируем MAS через интеграционный модуль
-        api_state.mas_manager = await mas_integration.initialize()
+        api_state.groupchat_manager = await mas_integration.initialize()
         
         logger.info("✅ MAS система инициализирована")
         
@@ -332,9 +332,9 @@ async def cleanup_resources():
 
 def get_mas_manager():
     """Dependency для получения MAS менеджера"""
-    if not api_state.mas_manager:
+    if not api_state.groupchat_manager:
         raise HTTPException(status_code=503, detail="MAS система не инициализирована")
-    return api_state.mas_manager
+    return api_state.groupchat_manager
 
 
 # =============================================================================
@@ -374,8 +374,8 @@ async def health_check():
     
     # Check agents
     try:
-        if api_state.mas_manager and api_state.mas_manager.agents:
-            health_status["services"]["agents_count"] = len(api_state.mas_manager.agents)
+        if api_state.groupchat_manager and api_state.groupchat_manager.agents:
+            health_status["services"]["agents_count"] = len(api_state.groupchat_manager.agents)
         else:
             health_status["services"]["agents"] = "initializing"
     except Exception:
@@ -680,7 +680,7 @@ async def get_dashboard_metrics():
         
         return SystemMetrics(
             total_messages=len(api_state.message_history),
-            active_agents=12 if api_state.mas_manager else 0,  # Placeholder
+            active_agents=12 if api_state.groupchat_manager else 0,  # Placeholder
             uptime=uptime,
             memory_usage=memory,
             cpu_usage=cpu
@@ -690,7 +690,7 @@ async def get_dashboard_metrics():
         # Fallback если psutil не установлен
         return SystemMetrics(
             total_messages=len(api_state.message_history),
-            active_agents=12 if api_state.mas_manager else 0,
+            active_agents=12 if api_state.groupchat_manager else 0,
             uptime=str(datetime.now(timezone.utc) - api_state.start_time)
         )
     except Exception as e:
