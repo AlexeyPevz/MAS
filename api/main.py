@@ -27,6 +27,7 @@ from tools.modern_telegram_bot import ModernTelegramBot
 from config.config_loader import load_config
 from api.integration import mas_integration
 from tools import studio_logger
+from api.security import rate_limit_dependency, require_permission, Role
 
 
 # Pydantic модели для API
@@ -878,6 +879,24 @@ async def visualization_websocket(websocket: WebSocket):
                 }))
     except WebSocketDisconnect:
         visualization_manager.disconnect(websocket)
+
+
+# Add global exception handler
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    """Global exception handler with proper logging"""
+    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    
+    # Don't expose internal errors in production
+    if os.getenv('DEBUG', '').lower() == 'true':
+        detail = str(exc)
+    else:
+        detail = "Internal server error"
+    
+    return JSONResponse(
+        status_code=500,
+        content={"detail": detail, "type": type(exc).__name__}
+    )
 
 
 if __name__ == "__main__":

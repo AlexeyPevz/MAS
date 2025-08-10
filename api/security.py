@@ -6,19 +6,43 @@ from typing import Optional, Dict, Any
 import secrets
 import hashlib
 import jwt
-from fastapi import HTTPException, Security, Depends, status
+from fastapi import HTTPException, Security, Depends, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 import redis
+import json
 from functools import wraps
 import time
-
+import os
+from pathlib import Path
 
 # Configuration
-SECRET_KEY = secrets.token_urlsafe(32)
+def get_secret_key():
+    """Get or create persistent secret key"""
+    # Try environment variable first
+    secret = os.getenv('MAS_SECRET_KEY')
+    if secret:
+        return secret
+    
+    # Try to load from file
+    secret_file = Path('/workspace/.secret_key')
+    if secret_file.exists():
+        return secret_file.read_text().strip()
+    
+    # Generate new secret and save
+    secret = secrets.token_urlsafe(32)
+    secret_file.write_text(secret)
+    secret_file.chmod(0o600)  # Only owner can read
+    return secret
+
+SECRET_KEY = get_secret_key()
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7
+
+# Rate limiting configuration
+RATE_LIMIT_REQUESTS = int(os.getenv('RATE_LIMIT_REQUESTS', '100'))
+RATE_LIMIT_WINDOW = int(os.getenv('RATE_LIMIT_WINDOW', '60'))  # seconds
 
 
 class Token(BaseModel):
@@ -33,51 +57,98 @@ class TokenData(BaseModel):
 
 
 class RateLimiter:
-    """Rate limiting implementation"""
+    """Rate limiter using Redis or in-memory fallback"""
     
-    def __init__(self, redis_client: Optional[redis.Redis] = None):
-        self.redis = redis_client
-        self.memory_store: Dict[str, list] = {}
+    def __init__(self):
+        try:
+            self.redis_client = redis.Redis(
+                host=os.getenv('REDIS_HOST', 'localhost'),
+                port=int(os.getenv('REDIS_PORT', '6379')),
+                decode_responses=True
+            )
+            self.redis_client.ping()
+            self.use_redis = True
+        except:
+            self.use_redis = False
+            self.memory_store = {}
     
-    def check_rate_limit(self, key: str, max_requests: int = 60, window: int = 60) -> bool:
-        """Check if rate limit exceeded"""
-        current_time = time.time()
+    def check_rate_limit(self, key: str, limit: int, window: int) -> bool:
+        """Check if request is within rate limit"""
+        current_time = int(time.time())
+        window_start = current_time - window
         
-        if self.redis:
-            # Redis-based rate limiting
-            pipe = self.redis.pipeline()
-            pipe.zadd(key, {str(current_time): current_time})
-            pipe.zremrangebyscore(key, 0, current_time - window)
+        if self.use_redis:
+            # Redis implementation
+            pipe = self.redis_client.pipeline()
+            pipe.zremrangebyscore(key, 0, window_start)
             pipe.zcard(key)
-            pipe.expire(key, window + 1)
+            pipe.zadd(key, {str(current_time): current_time})
+            pipe.expire(key, window)
             results = pipe.execute()
             
-            request_count = results[2]
-            return request_count <= max_requests
+            return results[1] < limit
         else:
-            # Memory-based fallback
+            # In-memory fallback
             if key not in self.memory_store:
                 self.memory_store[key] = []
             
             # Clean old entries
             self.memory_store[key] = [
                 t for t in self.memory_store[key] 
-                if t > current_time - window
+                if t > window_start
             ]
             
-            # Check limit
-            if len(self.memory_store[key]) >= max_requests:
+            if len(self.memory_store[key]) >= limit:
                 return False
             
             self.memory_store[key].append(current_time)
             return True
+
+rate_limiter = RateLimiter()
+
+# Role definitions
+class Role:
+    ADMIN = "admin"
+    USER = "user"
+    AGENT = "agent"
+    READONLY = "readonly"
+
+# Permission definitions
+PERMISSIONS = {
+    Role.ADMIN: ["*"],  # All permissions
+    Role.USER: [
+        "chat:read", "chat:write",
+        "agents:read", "metrics:read",
+        "projects:read", "projects:write"
+    ],
+    Role.AGENT: [
+        "chat:read", "chat:write",
+        "agents:communicate",
+        "memory:read", "memory:write"
+    ],
+    Role.READONLY: [
+        "chat:read", "agents:read",
+        "metrics:read", "projects:read"
+    ]
+}
+
+def check_permission(role: str, permission: str) -> bool:
+    """Check if role has permission"""
+    if role not in PERMISSIONS:
+        return False
+    
+    role_perms = PERMISSIONS[role]
+    if "*" in role_perms:
+        return True
+    
+    return permission in role_perms
 
 
 class SecurityManager:
     """Main security manager"""
     
     def __init__(self, redis_client: Optional[redis.Redis] = None):
-        self.rate_limiter = RateLimiter(redis_client)
+        self.rate_limiter = RateLimiter()
         self.bearer_scheme = HTTPBearer()
         self.blocked_tokens: set = set()
     
@@ -89,7 +160,12 @@ class SecurityManager:
         else:
             expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         
-        to_encode.update({"exp": expire, "type": "access"})
+        to_encode.update({
+            "exp": expire,
+            "iat": datetime.utcnow(),
+            "role": data.get("role", Role.USER)
+        })
+        
         encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
         return encoded_jwt
     
@@ -209,3 +285,46 @@ async def admin_endpoint(
 ):
     return {"message": "Admin access granted"}
 """
+
+# Dependencies
+def rate_limit_dependency(request: Request):
+    """Rate limiting dependency"""
+    client_ip = request.client.host
+    endpoint = request.url.path
+    
+    # Use combination of IP and endpoint for rate limiting
+    rate_limit_key = f"rate_limit:{client_ip}:{endpoint}"
+    
+    if not rate_limiter.check_rate_limit(
+        rate_limit_key, 
+        RATE_LIMIT_REQUESTS, 
+        RATE_LIMIT_WINDOW
+    ):
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded. Max {RATE_LIMIT_REQUESTS} requests per {RATE_LIMIT_WINDOW} seconds."
+        )
+
+def require_permission(permission: str):
+    """Decorator to require specific permission"""
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            # Get current user from kwargs (injected by FastAPI)
+            current_user = kwargs.get('current_user')
+            if not current_user:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Authentication required"
+                )
+            
+            role = current_user.get('role', Role.USER)
+            if not check_permission(role, permission):
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"Permission denied. Required: {permission}"
+                )
+            
+            return await func(*args, **kwargs)
+        return wrapper
+    return decorator

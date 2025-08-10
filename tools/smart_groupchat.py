@@ -14,6 +14,9 @@ from pathlib import Path
 # AutoGen v0.4+ is used via autogen-agentchat in agent implementations.
 # No direct imports from legacy autogen here.
 
+# Import quality metrics
+from .quality_metrics import quality_metrics, TaskResult
+
 
 @dataclass
 class Message:
@@ -123,25 +126,30 @@ class SmartGroupChatManager:
             self.logger.error(f"❌ Ошибка обработки сообщения: {e}")
             return f"Извините, произошла ошибка при обработке вашего запроса: {e}"
     
-    async def _route_message_to_agent(self, agent_name: str, message: Message) -> str:
-        """Маршрутизация сообщения к конкретному агенту"""
+    async def _route_message_to_agent(self, agent_name: str, message: Message):
+        """Маршрутизация сообщения агенту с отслеживанием метрик"""
         if agent_name not in self.agents:
-            return f"❌ Агент {agent_name} не найден"
+            self.logger.error(f"❌ Агент {agent_name} не найден")
+            return None
         
         agent = self.agents[agent_name]
-        self.logger.info(f"📡 Маршрутизация к агенту: {agent_name}")
+        start_time = asyncio.get_event_loop().time()
+        task_id = f"{agent_name}_{int(start_time)}"
         
         try:
+            self.logger.info(f"📤 Отправка сообщения агенту {agent_name}")
+            
             # Создаем контекст для агента
             context = self._build_context_for_agent(agent_name, message)
             
             # Генерируем ответ от агента (async‑путь для v0.4+)
             if hasattr(agent, 'generate_reply_async') and asyncio.iscoroutinefunction(getattr(agent, 'generate_reply_async')):
                 try:
-                    response = await agent.generate_reply_async(
+                    response_obj = await agent.generate_reply_async(
                         messages=context,
                         sender=None
                     )
+                    response = response_obj.chat_message.content if hasattr(response_obj, 'chat_message') else str(response_obj)
                     
                     # Если ответ пустой или None
                     if not response:
@@ -170,7 +178,7 @@ class SmartGroupChatManager:
                 response = self._generate_fallback_response(agent_name, message.content)
             
             # Сохраняем ответ агента
-            agent_message = Message(
+            response_msg = Message(
                 sender=agent_name,
                 recipient=message.sender,
                 content=response,
@@ -178,7 +186,7 @@ class SmartGroupChatManager:
                 message_type="text"
             )
             
-            self.conversation_history.append(agent_message)
+            self.conversation_history.append(response_msg)
             
             # Поддерживаем ограничение памяти истории диалога
             self._trim_history()
@@ -186,15 +194,67 @@ class SmartGroupChatManager:
             # Определяем следующих агентов для маршрутизации
             next_agents = self.routing.get(agent_name, [])
             
-            if next_agents and self._should_continue_routing(agent_name, response):
-                # Продолжаем маршрутизацию к следующим агентам
-                await self._process_routing_chain(next_agents, agent_message)
+            # Calculate metrics
+            end_time = asyncio.get_event_loop().time()
+            response_time = end_time - start_time
             
-            return response
+            # Extract confidence if available
+            confidence = 0.75  # Default
+            if isinstance(response, dict) and 'confidence' in response:
+                confidence = response['confidence']
+                actual_response = response['response']
+            else:
+                actual_response = response
+            
+            # Check if we should get optimized model suggestion
+            if hasattr(agent, 'task_type'):
+                optimization = quality_metrics.suggest_model_optimization(
+                    agent_name, 
+                    agent.task_type
+                )
+                if optimization.get('suggestion') != "Use default tier":
+                    self.logger.info(f"💡 Model optimization suggestion for {agent_name}: {optimization['suggestion']}")
+            
+            # Record success
+            quality_metrics.record_task_result(TaskResult(
+                task_id=task_id,
+                agent_name=agent_name,
+                task_type=message.message_type,
+                status="success",
+                confidence=confidence,
+                response_time=response_time,
+                model_used=agent.model if hasattr(agent, "model") else "unknown",
+                tier_used=agent.tier if hasattr(agent, "tier") else "standard",
+                token_cost=response_time * 0.0001  # Placeholder calculation
+            ))
+            
+            self.logger.info(f"✅ Агент {agent_name} обработал сообщение")
+            
+            # Continue routing if needed
+            if self._should_continue_routing(agent_name, actual_response):
+                await self._process_routing_chain(next_agents, response_msg)
+            
+            return actual_response
             
         except Exception as e:
+            # Record failure
+            end_time = asyncio.get_event_loop().time()
+            
+            quality_metrics.record_task_result(TaskResult(
+                task_id=task_id,
+                agent_name=agent_name,
+                task_type=message.message_type,
+                status="failure",
+                confidence=0.0,
+                response_time=end_time - start_time,
+                model_used=agent.model if hasattr(agent, "model") else "unknown",
+                tier_used=agent.tier if hasattr(agent, "tier") else "standard",
+                token_cost=0.0,
+                error=type(e).__name__
+            ))
+            
             self.logger.error(f"❌ Ошибка при обработке агентом {agent_name}: {e}")
-            return f"❌ Ошибка обработки агентом {agent_name}: {e}"
+            raise
     
     def _build_context_for_agent(self, agent_name: str, message: Message) -> List[Dict]:
         """Построение контекста разговора для агента"""

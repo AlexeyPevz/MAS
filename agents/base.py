@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict
 import asyncio
 
 # Импорт AutoGen v0.4+ с поддержкой новых API
@@ -252,3 +252,109 @@ class BaseAgent(AssistantAgent):
             except Exception:
                 pass
         return []
+    
+    async def ensure_knowledge(self, topic: str, confidence_threshold: float = 0.7) -> bool:
+        """Ensure agent has sufficient knowledge on topic before proceeding"""
+        # Check existing knowledge
+        knowledge_check = self.assess_knowledge(topic)
+        
+        if knowledge_check['confidence'] >= confidence_threshold:
+            return True
+        
+        # Request research if knowledge insufficient
+        print(f"[{self.name}] Insufficient knowledge on '{topic}' (confidence: {knowledge_check['confidence']:.2f})")
+        print(f"[{self.name}] Requesting research from Researcher agent...")
+        
+        # Create research request
+        research_request = await self.request_research(topic)
+        
+        # Wait for research completion with timeout
+        timeout = 30  # seconds
+        start_time = asyncio.get_event_loop().time()
+        
+        while asyncio.get_event_loop().time() - start_time < timeout:
+            if await self.check_research_complete(research_request['id']):
+                # Re-assess knowledge after research
+                new_check = self.assess_knowledge(topic)
+                if new_check['confidence'] >= confidence_threshold:
+                    print(f"[{self.name}] Knowledge updated successfully (new confidence: {new_check['confidence']:.2f})")
+                    return True
+            
+            await asyncio.sleep(1)
+        
+        print(f"[{self.name}] Research timeout - proceeding with limited knowledge")
+        return False
+    
+    def assess_knowledge(self, topic: str) -> Dict[str, Any]:
+        """Assess agent's knowledge level on a topic"""
+        if not self.memory:
+            return {'confidence': 0.0, 'sources': []}
+        
+        # Search relevant information
+        results = self.search_memory(topic, limit=10)
+        
+        if not results:
+            return {'confidence': 0.0, 'sources': []}
+        
+        # Calculate confidence based on:
+        # - Number of relevant results
+        # - Recency of information
+        # - Source quality
+        confidence = min(len(results) / 10.0, 0.9)  # Max 0.9 from search alone
+        
+        # Boost confidence if we have task-specific prompts
+        if topic.lower() in self._task_prompts:
+            confidence = min(confidence + 0.2, 1.0)
+        
+        return {
+            'confidence': confidence,
+            'sources': results[:5],
+            'source_count': len(results)
+        }
+    
+    async def request_research(self, topic: str) -> Dict[str, str]:
+        """Request research from Researcher agent"""
+        from tools.smart_groupchat import Message
+        from datetime import datetime, timezone
+        
+        request_id = f"research_{self.name}_{int(datetime.now(timezone.utc).timestamp())}"
+        
+        # Store request for tracking
+        if not hasattr(self, '_research_requests'):
+            self._research_requests = {}
+        
+        self._research_requests[request_id] = {
+            'topic': topic,
+            'status': 'pending',
+            'requested_at': datetime.now(timezone.utc)
+        }
+        
+        # Send research request through callback or direct message
+        try:
+            from tools.callbacks import research_validation_cycle
+            research_validation_cycle(topic)
+            self._research_requests[request_id]['status'] = 'in_progress'
+        except Exception as e:
+            print(f"[{self.name}] Failed to request research: {e}")
+            self._research_requests[request_id]['status'] = 'failed'
+        
+        return {'id': request_id, 'topic': topic}
+    
+    async def check_research_complete(self, request_id: str) -> bool:
+        """Check if research request is complete"""
+        if not hasattr(self, '_research_requests'):
+            return False
+        
+        request = self._research_requests.get(request_id)
+        if not request:
+            return False
+        
+        # Check if new knowledge available
+        if request['status'] == 'pending':
+            # Re-check memory for new information
+            new_results = self.search_memory(request['topic'])
+            if new_results and len(new_results) > 0:
+                request['status'] = 'completed'
+                return True
+        
+        return request['status'] == 'completed'
