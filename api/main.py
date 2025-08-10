@@ -29,6 +29,13 @@ from api.integration import mas_integration
 from tools import studio_logger
 from api.security import rate_limit_dependency, require_permission, Role
 
+# Import federation
+try:
+    from tools.federated_learning import federation_hub
+    FEDERATION_ENABLED = True
+except ImportError:
+    FEDERATION_ENABLED = False
+
 
 # Pydantic модели для API
 class ChatMessage(BaseModel):
@@ -897,6 +904,45 @@ async def global_exception_handler(request, exc):
         status_code=500,
         content={"detail": detail, "type": type(exc).__name__}
     )
+
+
+# Federation endpoints
+if FEDERATION_ENABLED:
+    @app.get("/api/v1/federation/status",
+             dependencies=[Depends(rate_limit_dependency)])
+    async def get_federation_status():
+        """Получить статус федерации"""
+        return federation_hub.get_federation_status()
+    
+    @app.post("/api/v1/federation/join",
+              dependencies=[Depends(rate_limit_dependency)])
+    async def join_federation(hub_endpoint: str, specialization: List[str]):
+        """Присоединиться к федерации"""
+        success = await federation_hub.join_federation(hub_endpoint, specialization)
+        return {"success": success}
+    
+    @app.post("/api/v1/federation/sync",
+              dependencies=[Depends(rate_limit_dependency)])
+    async def sync_federation():
+        """Синхронизироваться с федерацией"""
+        stats = await federation_hub.sync_with_federation()
+        return stats
+    
+    @app.post("/federation/receive_knowledge")
+    async def receive_knowledge(packet: Dict[str, Any]):
+        """Получить знания от другого узла"""
+        # Store in cache
+        federation_hub.knowledge_cache[packet["packet_id"]] = packet
+        return {"status": "received"}
+    
+    @app.post("/federation/request_knowledge")
+    async def handle_knowledge_request(request: Dict[str, Any]):
+        """Обработать запрос знаний от другого узла"""
+        # Prepare knowledge packets based on request
+        packets = federation_hub.prepare_knowledge_for_sharing(
+            request.get("knowledge_domain", "general")
+        )
+        return [p.__dict__ for p in packets[:10]]  # Limit response
 
 
 if __name__ == "__main__":

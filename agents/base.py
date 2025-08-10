@@ -56,7 +56,7 @@ PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts" / "agents"
 class BaseAgent(AssistantAgent):
     """Базовый класс для всех агентов Root-MAS"""
     
-    def __init__(self, name: str, model: str = "gpt-4o-mini", tier: str = "standard"):
+    def __init__(self, name: str, model: str = "gpt-4o-mini", tier: str = "standard", **kwargs):
         self.name = name
         self.tier = tier
         self.model = model

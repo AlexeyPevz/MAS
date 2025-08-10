@@ -46,6 +46,9 @@ python-json-logger>=2.0.0
 # Optional for voice features
 # yandex-speechkit>=2.0.0  # Uncomment if using Yandex SpeechKit
 
+# Security
+pyjwt==2.8.0
+
 # Optional dependencies
 yandex-speechkit==1.3.0
 
@@ -53,3 +56,6 @@ yandex-speechkit==1.3.0
 numpy==1.24.3
 scipy==1.11.4
 networkx==3.2.1
+
+# Federation support
+aiohttp==3.9.5
