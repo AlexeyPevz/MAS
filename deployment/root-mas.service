@@ -1,0 +1,35 @@
+[Unit]
+Description=Root-MAS Multi-Agent System
+Documentation=https://github.com/yourusername/root-mas
+After=network.target redis.service postgresql.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/root-mas
+Environment="PATH=/opt/root-mas/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONPATH=/opt/root-mas"
+ExecStartPre=/opt/root-mas/venv/bin/python check_system.py
+ExecStart=/opt/root-mas/venv/bin/python api/main.py
+Restart=always
+RestartSec=10
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/root-mas/data /opt/root-mas/logs
+
+# Resource limits
+MemoryLimit=4G
+CPUQuota=200%
+TasksMax=100
+
+# Logging
+StandardOutput=append:/opt/root-mas/logs/root-mas.log
+StandardError=append:/opt/root-mas/logs/root-mas-error.log
+
+[Install]
+WantedBy=multi-user.target

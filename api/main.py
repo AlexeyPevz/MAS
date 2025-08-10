@@ -343,27 +343,48 @@ def get_mas_manager():
 
 @app.get("/")
 async def root():
-    """Корневой эндпоинт"""
     return {
-        "message": "Root-MAS API",
-        "version": "1.0.0",
-        "status": "running",
-        "uptime": str(datetime.now(timezone.utc) - api_state.start_time)
+        "message": "Root-MAS API", 
+        "version": "0.4.0",
+        "docs": "/docs",
+        "pwa": "/pwa"
     }
-
 
 @app.get("/health")
 async def health_check():
-    """Health check для мониторинга"""
-    return {
+    """Health check endpoint для мониторинга"""
+    health_status = {
         "status": "healthy",
-        "timestamp": datetime.now(timezone.utc),
-        "components": {
-            "mas_system": api_state.mas_manager is not None,
-            "telegram_bot": api_state.telegram_bot is not None,
-            "websockets": len(api_state.websocket_connections)
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "services": {
+            "api": "up",
+            "agents": "up"
         }
     }
+    
+    # Check Redis
+    try:
+        from memory.redis_store import RedisStore
+        redis = RedisStore()
+        redis.store("health_check", "ok", expire=10)
+        health_status["services"]["redis"] = "up"
+    except Exception:
+        health_status["services"]["redis"] = "down"
+        health_status["status"] = "degraded"
+    
+    # Check agents
+    try:
+        if api_state.mas_manager and api_state.mas_manager.agents:
+            health_status["services"]["agents_count"] = len(api_state.mas_manager.agents)
+        else:
+            health_status["services"]["agents"] = "initializing"
+    except Exception:
+        health_status["services"]["agents"] = "error"
+        health_status["status"] = "unhealthy"
+    
+    # Return appropriate status code
+    status_code = 200 if health_status["status"] == "healthy" else 503
+    return JSONResponse(content=health_status, status_code=status_code)
 
 
 # =============================================================================
