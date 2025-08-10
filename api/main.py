@@ -27,6 +27,14 @@ from tools.modern_telegram_bot import ModernTelegramBot
 from config.config_loader import load_config
 from api.integration import mas_integration
 from tools import studio_logger
+from api.security import rate_limit_dependency, require_permission, Role
+
+# Import federation
+try:
+    from tools.federated_learning import federation_hub
+    FEDERATION_ENABLED = True
+except ImportError:
+    FEDERATION_ENABLED = False
 
 
 # Pydantic модели для API
@@ -229,7 +237,7 @@ visualization_manager = VisualizationWebSocketManager()
 # Global state
 class APIState:
     def __init__(self):
-        self.mas_manager: Optional[SmartGroupChatManager] = None
+        self.groupchat_manager: Optional[SmartGroupChatManager] = None
         self.telegram_bot: Optional[ModernTelegramBot] = None
         self.websocket_connections: List[WebSocket] = []
         self.start_time = datetime.now(timezone.utc)
@@ -290,7 +298,7 @@ async def initialize_mas_system():
         logger.info("🔧 Инициализация MAS системы...")
         
         # Инициализируем MAS через интеграционный модуль
-        api_state.mas_manager = await mas_integration.initialize()
+        api_state.groupchat_manager = await mas_integration.initialize()
         
         logger.info("✅ MAS система инициализирована")
         
@@ -324,9 +332,9 @@ async def cleanup_resources():
 
 def get_mas_manager():
     """Dependency для получения MAS менеджера"""
-    if not api_state.mas_manager:
+    if not api_state.groupchat_manager:
         raise HTTPException(status_code=503, detail="MAS система не инициализирована")
-    return api_state.mas_manager
+    return api_state.groupchat_manager
 
 
 # =============================================================================
@@ -335,27 +343,48 @@ def get_mas_manager():
 
 @app.get("/")
 async def root():
-    """Корневой эндпоинт"""
     return {
-        "message": "Root-MAS API",
-        "version": "1.0.0",
-        "status": "running",
-        "uptime": str(datetime.now(timezone.utc) - api_state.start_time)
+        "message": "Root-MAS API", 
+        "version": "0.4.0",
+        "docs": "/docs",
+        "pwa": "/pwa"
     }
-
 
 @app.get("/health")
 async def health_check():
-    """Health check для мониторинга"""
-    return {
+    """Health check endpoint для мониторинга"""
+    health_status = {
         "status": "healthy",
-        "timestamp": datetime.now(timezone.utc),
-        "components": {
-            "mas_system": api_state.mas_manager is not None,
-            "telegram_bot": api_state.telegram_bot is not None,
-            "websockets": len(api_state.websocket_connections)
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "services": {
+            "api": "up",
+            "agents": "up"
         }
     }
+    
+    # Check Redis
+    try:
+        from memory.redis_store import RedisStore
+        redis = RedisStore()
+        redis.store("health_check", "ok", expire=10)
+        health_status["services"]["redis"] = "up"
+    except Exception:
+        health_status["services"]["redis"] = "down"
+        health_status["status"] = "degraded"
+    
+    # Check agents
+    try:
+        if api_state.groupchat_manager and api_state.groupchat_manager.agents:
+            health_status["services"]["agents_count"] = len(api_state.groupchat_manager.agents)
+        else:
+            health_status["services"]["agents"] = "initializing"
+    except Exception:
+        health_status["services"]["agents"] = "error"
+        health_status["status"] = "unhealthy"
+    
+    # Return appropriate status code
+    status_code = 200 if health_status["status"] == "healthy" else 503
+    return JSONResponse(content=health_status, status_code=status_code)
 
 
 # =============================================================================
@@ -651,7 +680,7 @@ async def get_dashboard_metrics():
         
         return SystemMetrics(
             total_messages=len(api_state.message_history),
-            active_agents=12 if api_state.mas_manager else 0,  # Placeholder
+            active_agents=12 if api_state.groupchat_manager else 0,  # Placeholder
             uptime=uptime,
             memory_usage=memory,
             cpu_usage=cpu
@@ -661,7 +690,7 @@ async def get_dashboard_metrics():
         # Fallback если psutil не установлен
         return SystemMetrics(
             total_messages=len(api_state.message_history),
-            active_agents=12 if api_state.mas_manager else 0,
+            active_agents=12 if api_state.groupchat_manager else 0,
             uptime=str(datetime.now(timezone.utc) - api_state.start_time)
         )
     except Exception as e:
@@ -878,6 +907,63 @@ async def visualization_websocket(websocket: WebSocket):
                 }))
     except WebSocketDisconnect:
         visualization_manager.disconnect(websocket)
+
+
+# Add global exception handler
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    """Global exception handler with proper logging"""
+    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    
+    # Don't expose internal errors in production
+    if os.getenv('DEBUG', '').lower() == 'true':
+        detail = str(exc)
+    else:
+        detail = "Internal server error"
+    
+    return JSONResponse(
+        status_code=500,
+        content={"detail": detail, "type": type(exc).__name__}
+    )
+
+
+# Federation endpoints
+if FEDERATION_ENABLED:
+    @app.get("/api/v1/federation/status",
+             dependencies=[Depends(rate_limit_dependency)])
+    async def get_federation_status():
+        """Получить статус федерации"""
+        return federation_hub.get_federation_status()
+    
+    @app.post("/api/v1/federation/join",
+              dependencies=[Depends(rate_limit_dependency)])
+    async def join_federation(hub_endpoint: str, specialization: List[str]):
+        """Присоединиться к федерации"""
+        success = await federation_hub.join_federation(hub_endpoint, specialization)
+        return {"success": success}
+    
+    @app.post("/api/v1/federation/sync",
+              dependencies=[Depends(rate_limit_dependency)])
+    async def sync_federation():
+        """Синхронизироваться с федерацией"""
+        stats = await federation_hub.sync_with_federation()
+        return stats
+    
+    @app.post("/federation/receive_knowledge")
+    async def receive_knowledge(packet: Dict[str, Any]):
+        """Получить знания от другого узла"""
+        # Store in cache
+        federation_hub.knowledge_cache[packet["packet_id"]] = packet
+        return {"status": "received"}
+    
+    @app.post("/federation/request_knowledge")
+    async def handle_knowledge_request(request: Dict[str, Any]):
+        """Обработать запрос знаний от другого узла"""
+        # Prepare knowledge packets based on request
+        packets = federation_hub.prepare_knowledge_for_sharing(
+            request.get("knowledge_domain", "general")
+        )
+        return [p.__dict__ for p in packets[:10]]  # Limit response
 
 
 if __name__ == "__main__":

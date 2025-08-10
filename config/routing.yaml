@@ -1,0 +1,23 @@
+# Agent routing configuration
+routing:
+  meta:
+    - coordination
+  
+  coordination:
+    - researcher
+    - multi_tool
+    - workflow_builder
+    - webapp_builder
+    - prompt_builder
+    - model_selector
+    - budget_manager
+    - communicator
+  
+  researcher:
+    - fact_checker
+  
+  workflow_builder:
+    - multi_tool
+  
+  webapp_builder:
+    - multi_tool

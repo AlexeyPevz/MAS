@@ -1,0 +1,80 @@
+{
+  "timestamp": "8985.868415578",
+  "results": {
+    "dependencies": {
+      "fastapi": "\u274c Missing",
+      "uvicorn": "\u274c Missing",
+      "pydantic": "\u274c Missing",
+      "autogen_agentchat": "\u274c Missing",
+      "autogen_ext": "\u274c Missing",
+      "redis": "\u274c Missing",
+      "psycopg2": "\u274c Missing",
+      "chromadb": "\u274c Missing",
+      "openai": "\u274c Missing",
+      "telegram": "\u274c Missing",
+      "prometheus_client": "\u274c Missing",
+      "numpy": "\u274c Missing",
+      "scipy": "\u274c Missing",
+      "networkx": "\u274c Missing",
+      "aiohttp": "\u274c Missing"
+    },
+    "modules": {
+      "agents.base": "\u2705 OK",
+      "agents.core_agents": "\u2705 OK",
+      "agents.specialized_agents": "\u2705 OK",
+      "tools.smart_groupchat": "\u2705 OK",
+      "tools.quality_metrics": "\u2705 OK",
+      "tools.error_handler": "\u2705 OK",
+      "tools.event_sourcing": "\u2705 OK",
+      "tools.learning_loop": "\u274c Error: No module named 'numpy'",
+      "tools.knowledge_graph": "\u274c Error: No module named 'networkx'",
+      "tools.ab_testing": "\u274c Error: No module named 'scipy'",
+      "tools.federated_learning": "\u274c Error: No module named 'aiohttp'",
+      "api.main": "\u274c Error: No module named 'httpx'",
+      "api.security": "\u274c Error: No module named 'jwt'",
+      "memory.redis_store": "\u2705 OK",
+      "memory.chroma_store": "\u2705 OK",
+      "memory.postgres_store": "\u2705 OK"
+    },
+    "components": {},
+    "config": {
+      "config/agents.yaml": "\u2705 Found",
+      "config/llm_tiers.yaml": "\u2705 Found",
+      "config/routing.yaml": "\u2705 Found",
+      "config/proactive_mode.yaml": "\u2705 Found",
+      ".env.example": "\u2705 Found"
+    }
+  },
+  "errors": [
+    "Missing dependency: fastapi",
+    "Missing dependency: uvicorn",
+    "Missing dependency: pydantic",
+    "Missing dependency: autogen_agentchat",
+    "Missing dependency: autogen_ext",
+    "Missing dependency: redis",
+    "Missing dependency: psycopg2",
+    "Missing dependency: chromadb",
+    "Missing dependency: openai",
+    "Missing dependency: telegram",
+    "Missing dependency: prometheus_client",
+    "Missing dependency: numpy",
+    "Missing dependency: scipy",
+    "Missing dependency: networkx",
+    "Missing dependency: aiohttp",
+    "Module error in tools.learning_loop: No module named 'numpy'",
+    "Module error in tools.knowledge_graph: No module named 'networkx'",
+    "Module error in tools.ab_testing: No module named 'scipy'",
+    "Module error in tools.federated_learning: No module named 'aiohttp'",
+    "Module error in api.main: No module named 'httpx'",
+    "Module error in api.security: No module named 'jwt'",
+    "Agent creation error: name 'args' is not defined"
+  ],
+  "warnings": [
+    "Environment variable OPENAI_API_KEY not set",
+    "Environment variable TELEGRAM_BOT_TOKEN not set",
+    "Environment variable REDIS_HOST not set",
+    "Environment variable POSTGRES_HOST not set",
+    "Redis not available"
+  ],
+  "ready": false
+}
