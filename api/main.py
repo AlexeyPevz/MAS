@@ -484,6 +484,24 @@ async def voice_chat(audio_file: bytes, user_id: str = "voice_user"):
 # CHAT API - для диалога с Communicator Agent
 # =============================================================================
 
+@app.post("/api/v1/chat/simple", response_model=ChatResponse)
+async def simple_chat(message: ChatMessage):
+    """Простой чат без визуализации для тестирования"""
+    try:
+        # Обрабатываем сообщение через MAS
+        response_text = await mas_integration.process_message(message.message, message.user_id)
+        
+        return ChatResponse(
+            response=response_text,
+            agent="system",
+            timestamp=time.time()
+        )
+        
+    except Exception as e:
+        logger.error(f"❌ Ошибка обработки сообщения: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/v1/chat/message", response_model=ChatResponse)
 async def send_message_with_visualization(message: ChatMessage):
     """Отправка сообщения с визуализацией мыслительного процесса"""
