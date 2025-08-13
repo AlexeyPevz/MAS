@@ -27,7 +27,7 @@ from tools.modern_telegram_bot import ModernTelegramBot
 from config.config_loader import load_config
 from api.integration import mas_integration
 from tools import studio_logger
-from api.security import rate_limit_dependency, require_permission, Role
+from api.security import rate_limit_dependency, require_permission, Role, auth_user_dependency
 
 # Import federation
 try:
@@ -485,7 +485,7 @@ async def voice_chat(audio_file: bytes, user_id: str = "voice_user"):
 # =============================================================================
 
 @app.post("/api/v1/chat/simple", response_model=ChatResponse, dependencies=[Depends(rate_limit_dependency)])
-async def simple_chat(message: ChatMessage, current_user: dict | None = None):
+async def simple_chat(message: ChatMessage, current_user: dict | None = Depends(auth_user_dependency)):
     """Простой чат без визуализации для тестирования"""
     try:
         # Обрабатываем сообщение через MAS
@@ -503,7 +503,7 @@ async def simple_chat(message: ChatMessage, current_user: dict | None = None):
 
 
 @app.post("/api/v1/chat/message", response_model=ChatResponse, dependencies=[Depends(rate_limit_dependency)])
-async def send_message_with_visualization(message: ChatMessage, current_user: dict | None = None):
+async def send_message_with_visualization(message: ChatMessage, current_user: dict | None = Depends(auth_user_dependency)):
     """Отправка сообщения с визуализацией мыслительного процесса"""
     try:
         # Начинаем новый поток визуализации
@@ -701,7 +701,7 @@ async def get_chat_history(limit: int = 50, offset: int = 0):
 # =============================================================================
 
 @app.get("/api/v1/metrics/dashboard", response_model=SystemMetrics, dependencies=[Depends(rate_limit_dependency)])
-async def get_dashboard_metrics(current_user: dict | None = None):
+async def get_dashboard_metrics(current_user: dict | None = Depends(auth_user_dependency)):
     """Метрики для дашборда"""
     try:
         import psutil
@@ -765,7 +765,7 @@ async def get_voice_stats():
 
 
 @app.get("/api/v1/cache/stats", dependencies=[Depends(rate_limit_dependency)])
-async def get_cache_stats(current_user: dict | None = None):
+async def get_cache_stats(current_user: dict | None = Depends(auth_user_dependency)):
     """Получение статистики семантического кэша"""
     if not SEMANTIC_CACHE_ENABLED:
         raise HTTPException(status_code=503, detail="Semantic cache not enabled")
@@ -794,7 +794,7 @@ async def get_cache_stats(current_user: dict | None = None):
 
 
 @app.post("/api/v1/cache/clear", dependencies=[Depends(rate_limit_dependency)])
-async def clear_cache(partial: bool = False, current_user: dict | None = None):
+async def clear_cache(partial: bool = False, current_user: dict | None = Depends(auth_user_dependency)):
     """Очистка семантического кэша"""
     if not SEMANTIC_CACHE_ENABLED:
         raise HTTPException(status_code=503, detail="Semantic cache not enabled")

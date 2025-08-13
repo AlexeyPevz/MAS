@@ -287,6 +287,10 @@ async def admin_endpoint(
 """
 
 # Dependencies
+def auth_user_dependency(current: TokenData = Depends(get_current_user)) -> dict:
+    """Return a plain dict with user info for endpoints that accept current_user: dict."""
+    return {"user_id": current.user_id, "scopes": current.scopes}
+
 def rate_limit_dependency(request: Request):
     """Rate limiting dependency"""
     client_ip = request.client.host

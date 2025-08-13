@@ -16,6 +16,8 @@ from pathlib import Path
 
 # Import quality metrics
 from .quality_metrics import quality_metrics, TaskResult
+from .ab_testing import ab_testing
+from .learning_loop import learning_loop
 
 
 @dataclass
@@ -135,12 +137,24 @@ class SmartGroupChatManager:
         agent = self.agents[agent_name]
         start_time = asyncio.get_event_loop().time()
         task_id = f"{agent_name}_{int(start_time)}"
+        experiment_context = {"experiment_id": None, "variant_id": None}
         
         try:
             self.logger.info(f"📤 Отправка сообщения агенту {agent_name}")
             
             # Создаем контекст для агента
             context = self._build_context_for_agent(agent_name, message)
+
+            # A/B: выбрать вариант промпта (если есть активные эксперименты)
+            try:
+                variant = ab_testing.get_variant_for_task(agent_name, task_type=message.message_type, user_id=message.sender)
+                if variant and hasattr(agent, 'load_task_prompt'):
+                    # Подменяем системный/задачный промпт на вариант
+                    agent._task_prompts[message.message_type or 'default'] = variant.content
+                    experiment_context["experiment_id"] = variant.id.split("_test_")[0].replace("_control", "")
+                    experiment_context["variant_id"] = variant.id
+            except Exception as _:
+                pass
             
             # Генерируем ответ от агента (async‑путь для v0.4+)
             if hasattr(agent, 'generate_reply_async') and asyncio.iscoroutinefunction(getattr(agent, 'generate_reply_async')):
@@ -216,7 +230,7 @@ class SmartGroupChatManager:
                     self.logger.info(f"💡 Model optimization suggestion for {agent_name}: {optimization['suggestion']}")
             
             # Record success
-            quality_metrics.record_task_result(TaskResult(
+            result = TaskResult(
                 task_id=task_id,
                 agent_name=agent_name,
                 task_type=message.message_type,
@@ -225,8 +239,36 @@ class SmartGroupChatManager:
                 response_time=response_time,
                 model_used=agent.model if hasattr(agent, "model") else "unknown",
                 tier_used=agent.tier if hasattr(agent, "tier") else "standard",
-                token_cost=response_time * 0.0001  # Placeholder calculation
-            ))
+                token_cost=response_time * 0.0001
+            )
+            quality_metrics.record_task_result(result)
+
+            # A/B: записать результат эксперимента, если вариант применялся
+            try:
+                if experiment_context["experiment_id"] and experiment_context["variant_id"]:
+                    ab_testing.record_result(
+                        experiment_context["experiment_id"],
+                        experiment_context["variant_id"],
+                        result,
+                        user_satisfaction=None
+                    )
+            except Exception:
+                pass
+
+            # RL: записать опыт для обучения
+            try:
+                state = {"sender": message.sender, "len": len(message.content)}
+                next_state = {"available_actions": []}
+                await learning_loop.record_experience(
+                    agent_name=agent_name,
+                    task_type=message.message_type,
+                    state=state,
+                    action="respond",
+                    result=result,
+                    next_state=next_state
+                )
+            except Exception:
+                pass
             
             self.logger.info(f"✅ Агент {agent_name} обработал сообщение")
             
