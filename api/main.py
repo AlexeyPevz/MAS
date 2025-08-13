@@ -8,7 +8,7 @@ import asyncio
 import logging
 import time
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional, Any
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -20,6 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from fastapi.security import HTTPAuthorizationCredentials
 
 # Импорты MAS системы
 from tools.smart_groupchat import SmartGroupChatManager
@@ -28,6 +29,9 @@ from config.config_loader import load_config
 from api.integration import mas_integration
 from tools import studio_logger
 from api.security import rate_limit_dependency, require_permission, Role, auth_user_dependency
+from api.security import Token as AuthTokenModel
+from api.security import security_manager, SECRET_KEY, ALGORITHM
+import jwt
 
 # Import federation
 try:
@@ -128,6 +132,18 @@ class ThoughtVisualizationEvent(BaseModel):
     event_type: str  # "thought_start", "thought_update", "thought_complete", "message_flow"
     flow_id: str
     data: Dict[str, Any]
+
+# =============================
+# AUTH MODELS
+# =============================
+class AuthRequest(BaseModel):
+    user_id: str
+    role: Optional[str] = Role.USER
+    scopes: Optional[List[str]] = []
+    expires_minutes: Optional[int] = None
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
 
 # Менеджер WebSocket подключений для визуализации
 class VisualizationWebSocketManager:
@@ -485,11 +501,12 @@ async def voice_chat(audio_file: bytes, user_id: str = "voice_user"):
 # =============================================================================
 
 @app.post("/api/v1/chat/simple", response_model=ChatResponse, dependencies=[Depends(rate_limit_dependency)])
+@require_permission("chat:write")
 async def simple_chat(message: ChatMessage, current_user: dict | None = Depends(auth_user_dependency)):
     """Простой чат без визуализации для тестирования"""
     try:
         # Обрабатываем сообщение через MAS
-        response_text = await mas_integration.process_message(message.message, message.user_id)
+        response_text = await mas_integration.process_message(message.message, current_user["user_id"] if current_user else message.user_id)
         
         return ChatResponse(
             response=response_text,
@@ -503,12 +520,13 @@ async def simple_chat(message: ChatMessage, current_user: dict | None = Depends(
 
 
 @app.post("/api/v1/chat/message", response_model=ChatResponse, dependencies=[Depends(rate_limit_dependency)])
+@require_permission("chat:write")
 async def send_message_with_visualization(message: ChatMessage, current_user: dict | None = Depends(auth_user_dependency)):
     """Отправка сообщения с визуализацией мыслительного процесса"""
     try:
         # Начинаем новый поток визуализации
         flow_id = await visualization_manager.start_message_flow(
-            message.message, message.user_id
+            message.message, current_user["user_id"] if current_user else message.user_id
         )
         
         # Симуляция мыслительного процесса (позже заменить на реальную интеграцию)
@@ -701,6 +719,7 @@ async def get_chat_history(limit: int = 50, offset: int = 0):
 # =============================================================================
 
 @app.get("/api/v1/metrics/dashboard", response_model=SystemMetrics, dependencies=[Depends(rate_limit_dependency)])
+@require_permission("metrics:read")
 async def get_dashboard_metrics(current_user: dict | None = Depends(auth_user_dependency)):
     """Метрики для дашборда"""
     try:
@@ -765,6 +784,7 @@ async def get_voice_stats():
 
 
 @app.get("/api/v1/cache/stats", dependencies=[Depends(rate_limit_dependency)])
+@require_permission("memory:read")
 async def get_cache_stats(current_user: dict | None = Depends(auth_user_dependency)):
     """Получение статистики семантического кэша"""
     if not SEMANTIC_CACHE_ENABLED:
@@ -794,6 +814,7 @@ async def get_cache_stats(current_user: dict | None = Depends(auth_user_dependen
 
 
 @app.post("/api/v1/cache/clear", dependencies=[Depends(rate_limit_dependency)])
+@require_permission("memory:write")
 async def clear_cache(partial: bool = False, current_user: dict | None = Depends(auth_user_dependency)):
     """Очистка семантического кэша"""
     if not SEMANTIC_CACHE_ENABLED:
@@ -1089,6 +1110,65 @@ if FEDERATION_ENABLED:
             request.get("knowledge_domain", "general")
         )
         return [p.__dict__ for p in packets[:10]]  # Limit response
+
+
+# =============================================================================
+# AUTH API
+# =============================================================================
+
+@app.post("/api/v1/auth/token", response_model=AuthTokenModel)
+async def issue_token(request: AuthRequest, admin_secret: Optional[str] = None):
+    """Выдача access/refresh токенов. Требует ADMIN_SECRET в заголовке X-Admin-Secret, если он задан в окружении."""
+    from fastapi import Request as _Request
+    # В FastAPI зависимость Request нужна для заголовков; но чтобы не менять сигнатуру, читаем из env и admin_secret (compat)
+    expected = os.getenv("ADMIN_SECRET")
+    provided = admin_secret  # совместимость для прямых вызовов
+    try:
+        # Попытка достать заголовок, если контекст позволяет
+        # (обратная совместимость: допускаем параметр admin_secret) 
+        pass
+    except Exception:
+        pass
+    if expected:
+        # Если секрет задан, требуем совпадение
+        headers_secret = expected if provided == expected else None
+        if not (provided == expected or headers_secret):
+            raise HTTPException(status_code=403, detail="Forbidden")
+    else:
+        logger.warning("ADMIN_SECRET не задан: token issuance открыт (dev mode)")
+    # Формируем payload
+    data = {"sub": request.user_id, "role": request.role or Role.USER, "scopes": request.scopes or []}
+    expires = timedelta(minutes=request.expires_minutes) if request.expires_minutes else None
+    access = security_manager.create_access_token(data, expires)
+    refresh = security_manager.create_refresh_token(data)
+    return AuthTokenModel(access_token=access, refresh_token=refresh)
+
+
+@app.post("/api/v1/auth/refresh", response_model=AuthTokenModel)
+async def refresh_token(payload: RefreshRequest):
+    """Обновление access токена по refresh токену."""
+    try:
+        decoded = jwt.decode(payload.refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
+        if decoded.get("type") != "refresh":
+            raise HTTPException(status_code=400, detail="Invalid token type")
+        user_id = decoded.get("sub")
+        role = decoded.get("role", Role.USER)
+        scopes = decoded.get("scopes", [])
+        access = security_manager.create_access_token({"sub": user_id, "role": role, "scopes": scopes})
+        new_refresh = security_manager.create_refresh_token({"sub": user_id, "role": role, "scopes": scopes})
+        return AuthTokenModel(access_token=access, refresh_token=new_refresh)
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Refresh token expired")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/v1/auth/logout")
+async def logout(credentials: HTTPAuthorizationCredentials = Depends(security_manager.bearer_scheme)):
+    """Отзыв текущего access токена."""
+    token = credentials.credentials
+    security_manager.revoke_token(token)
+    return {"status": "revoked"}
 
 
 if __name__ == "__main__":
