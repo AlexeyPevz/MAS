@@ -36,6 +36,13 @@ try:
 except ImportError:
     FEDERATION_ENABLED = False
 
+# Import semantic cache
+try:
+    from tools.semantic_llm_cache import semantic_cache
+    SEMANTIC_CACHE_ENABLED = True
+except ImportError:
+    SEMANTIC_CACHE_ENABLED = False
+
 
 # Pydantic модели для API
 class ChatMessage(BaseModel):
@@ -300,6 +307,12 @@ async def initialize_mas_system():
         # Инициализируем MAS через интеграционный модуль
         api_state.groupchat_manager = await mas_integration.initialize()
         
+        # Инициализируем семантический кэш если доступен
+        if SEMANTIC_CACHE_ENABLED:
+            logger.info("🧠 Инициализация семантического кэша...")
+            await semantic_cache.initialize()
+            logger.info("✅ Семантический кэш инициализирован")
+        
         logger.info("✅ MAS система инициализирована")
         
     except Exception as e:
@@ -471,6 +484,24 @@ async def voice_chat(audio_file: bytes, user_id: str = "voice_user"):
 # CHAT API - для диалога с Communicator Agent
 # =============================================================================
 
+@app.post("/api/v1/chat/simple", response_model=ChatResponse)
+async def simple_chat(message: ChatMessage):
+    """Простой чат без визуализации для тестирования"""
+    try:
+        # Обрабатываем сообщение через MAS
+        response_text = await mas_integration.process_message(message.message, message.user_id)
+        
+        return ChatResponse(
+            response=response_text,
+            agent="system",
+            timestamp=time.time()
+        )
+        
+    except Exception as e:
+        logger.error(f"❌ Ошибка обработки сообщения: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/v1/chat/message", response_model=ChatResponse)
 async def send_message_with_visualization(message: ChatMessage):
     """Отправка сообщения с визуализацией мыслительного процесса"""
@@ -562,9 +593,10 @@ async def simulate_agent_thinking(flow_id: str, user_message: str):
     # 5. Мета-агент распределяет задачи
     await visualization_manager.update_flow_stage(flow_id, "agent_processing")
     
-    selected_agents = ["researcher", "data_analyst", "creative_writer"]
+    # Используем агентов, которые точно есть в конфигурации
+    selected_agents = ["researcher", "multitool", "communicator"]
     for agent_id in selected_agents:
-        agent_name = next(p.name for p in AGENT_PROFILES if p.agent_id == agent_id)
+        agent_name = next((p.name for p in AGENT_PROFILES if p.agent_id == agent_id), agent_id.title())
         
         await visualization_manager.add_agent_thought(flow_id, AgentThought(
             agent_id="meta_agent",
@@ -695,6 +727,99 @@ async def get_dashboard_metrics():
         )
     except Exception as e:
         logger.error(f"❌ Ошибка получения метрик: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/voice/stats")
+async def get_voice_stats():
+    """Получение статистики голосовой обработки"""
+    try:
+        from tools.core_voice_processor import VoiceProcessingCoordinator, AUTOGEN_CORE_AVAILABLE
+        
+        if not AUTOGEN_CORE_AVAILABLE:
+            return JSONResponse(
+                content={
+                    "status": "unavailable",
+                    "message": "autogen-core not installed"
+                },
+                status_code=503
+            )
+            
+        # Здесь был бы доступ к глобальному voice coordinator
+        # Для примера возвращаем базовую информацию
+        return {
+            "core_available": AUTOGEN_CORE_AVAILABLE,
+            "speechkit_configured": bool(os.getenv("YANDEX_SPEECHKIT_API_KEY")),
+            "optimization": "autogen-core based",
+            "features": [
+                "Voice recognition caching",
+                "Speech synthesis caching",
+                "Parallel processing",
+                "Low latency mode"
+            ]
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting voice stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/cache/stats")
+async def get_cache_stats():
+    """Получение статистики семантического кэша"""
+    if not SEMANTIC_CACHE_ENABLED:
+        raise HTTPException(status_code=503, detail="Semantic cache not enabled")
+    
+    try:
+        stats = semantic_cache.get_stats()
+        
+        # Добавляем информацию о топ запросах
+        top_queries = []
+        for key, entry in list(semantic_cache.local_cache.items())[:10]:
+            top_queries.append({
+                "query": entry.query[:100] + "..." if len(entry.query) > 100 else entry.query,
+                "hits": entry.hits,
+                "similarity_score": entry.similarity_score,
+                "tokens_saved": entry.tokens_saved,
+                "last_accessed": datetime.fromtimestamp(entry.last_accessed).isoformat()
+            })
+        
+        stats["top_queries"] = top_queries
+        stats["cache_enabled"] = True
+        
+        return JSONResponse(content=stats)
+    except Exception as e:
+        logger.error(f"Error getting cache stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/v1/cache/clear")
+async def clear_cache(partial: bool = False):
+    """Очистка семантического кэша"""
+    if not SEMANTIC_CACHE_ENABLED:
+        raise HTTPException(status_code=503, detail="Semantic cache not enabled")
+    
+    try:
+        if partial:
+            # Очищаем только истекшие записи
+            await semantic_cache.clear_expired()
+            return {"status": "success", "message": "Expired entries cleared"}
+        else:
+            # Полная очистка
+            old_size = len(semantic_cache.local_cache)
+            semantic_cache.local_cache.clear()
+            semantic_cache.stats = {
+                "hits": 0,
+                "misses": 0,
+                "semantic_hits": 0,
+                "exact_hits": 0,
+                "total_tokens_saved": 0,
+                "total_cost_saved": 0.0,
+                "avg_similarity": 0.0
+            }
+            return {"status": "success", "message": f"Cleared {old_size} entries"}
+    except Exception as e:
+        logger.error(f"Error clearing cache: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
