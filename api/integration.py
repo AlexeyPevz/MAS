@@ -3,6 +3,7 @@
 """
 
 import logging
+import os
 from typing import Optional
 
 # Интеграция будет через существующие компоненты
@@ -28,9 +29,28 @@ class MASAPIIntegration:
         try:
             logger.info("🔧 Инициализация MAS системы для API...")
             
-            # Создаем менеджер напрямую для API использования
-            from tools.smart_groupchat import SmartGroupChatManager
-            self.mas_manager = SmartGroupChatManager()
+            # Проверяем, использовать ли Teams API
+            use_teams = os.getenv("USE_TEAMS_API", "true").lower() == "true"
+            
+            if use_teams:
+                try:
+                    from tools.teams_groupchat_manager import TeamsGroupChatManager, TEAMS_API_AVAILABLE
+                    if TEAMS_API_AVAILABLE:
+                        logger.info("🏢 Используем Teams-enhanced GroupChat Manager")
+                        self.mas_manager = TeamsGroupChatManager()
+                    else:
+                        logger.warning("⚠️ Teams API недоступен, используем обычный менеджер")
+                        from tools.smart_groupchat import SmartGroupChatManager
+                        self.mas_manager = SmartGroupChatManager()
+                except ImportError:
+                    logger.warning("⚠️ Не удалось импортировать Teams manager")
+                    from tools.smart_groupchat import SmartGroupChatManager
+                    self.mas_manager = SmartGroupChatManager()
+            else:
+                # Создаем обычный менеджер
+                from tools.smart_groupchat import SmartGroupChatManager
+                self.mas_manager = SmartGroupChatManager()
+                
             await self.mas_manager.initialize()
             
             self._initialized = True

@@ -214,8 +214,7 @@ async def run_telegram_bot_wrapper():
 
 
 async def run_telegram_bot():
-    """Запуск Telegram бота через API"""
-    from tools.modern_telegram_bot import ModernTelegramBot
+    """Запуск Telegram бота через API с поддержкой streaming"""
     from tools.telegram_api_client import create_api_callback
     
     logger = logging.getLogger(__name__)
@@ -225,16 +224,52 @@ async def run_telegram_bot():
         logger.error("❌ TELEGRAM_BOT_TOKEN не настроен")
         return
     
+    # Проверяем, включен ли streaming
+    enable_streaming = os.getenv("TELEGRAM_STREAMING", "true").lower() == "true"
+    
     try:
         # Создаем callback через API
         api_callback, api_client = create_api_callback("http://localhost:8000")
         
-        # Создаем бота
-        bot = ModernTelegramBot(
-            token=token,
-            mas_callback=api_callback,
-            enable_voice=False
-        )
+        if enable_streaming:
+            # Используем streaming версию бота
+            from tools.streaming_telegram_bot import StreamingTelegramBot, create_streaming_callback
+            logger.info("🌊 Включен режим streaming для Telegram бота")
+            
+            # Создаем streaming callback
+            # В будущем здесь будет использоваться streaming из SmartGroupChatManager
+            async def streaming_callback(message: str, user_id: str):
+                """Временный streaming callback через API"""
+                # Пока используем обычный ответ, разбитый на части
+                response = await api_callback(message)
+                
+                # Имитируем streaming
+                words = response.split()
+                chunk = ""
+                for i, word in enumerate(words):
+                    chunk += word + " "
+                    if (i + 1) % 3 == 0 or i == len(words) - 1:
+                        yield chunk
+                        chunk = ""
+                        await asyncio.sleep(0.05)
+            
+            bot = StreamingTelegramBot(
+                token=token,
+                mas_callback=api_callback,
+                streaming_callback=streaming_callback,
+                streaming_delay=0.3,
+                enable_voice=False
+            )
+        else:
+            # Используем обычную версию
+            from tools.modern_telegram_bot import ModernTelegramBot
+            logger.info("📱 Используется обычный режим Telegram бота")
+            
+            bot = ModernTelegramBot(
+                token=token,
+                mas_callback=api_callback,
+                enable_voice=False
+            )
         
         # Запускаем бота
         await bot.run()

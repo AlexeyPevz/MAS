@@ -30,6 +30,14 @@ except ImportError:
     print("Warning: Advanced features not available")
     ADVANCED_FEATURES = False
 
+# Import semantic cache
+try:
+    from tools.semantic_llm_cache import semantic_cache, cached_llm_call
+    SEMANTIC_CACHE_AVAILABLE = True
+except ImportError:
+    print("Warning: Semantic cache not available")
+    SEMANTIC_CACHE_AVAILABLE = False
+
 from tools.prompt_io import read_prompt
 
 # New: helper to get task-specific prompt path
@@ -113,13 +121,14 @@ class BaseAgent(AssistantAgent):
         self._setup_memory()
 
     async def generate_reply_async(self, messages=None, sender=None, config=None):
-        """Асинхронная версия generate_reply для совместимости"""
+        """Асинхронная версия generate_reply для совместимости с семантическим кэшированием"""
         if messages is None:
             messages = []
         
         try:
             # Конвертируем старый формат сообщений в новый
             new_messages = []
+            last_content = ""
             for msg in messages:
                 if isinstance(msg, dict):
                     content = msg.get("content", "")
@@ -129,18 +138,58 @@ class BaseAgent(AssistantAgent):
                     source = "user"
                 # Простейшая модель новых сообщений: список словарей
                 new_messages.append({"content": content, "source": source})
+                last_content = content
             
-            # Используем новый API, если он есть у родительского класса
-            if hasattr(super(), 'on_messages'):
-                cancellation_token = None
-                try:
-                    cancellation_token = CancellationToken()
-                except Exception:
+            # Если есть семантический кэш и сообщения
+            if SEMANTIC_CACHE_AVAILABLE and last_content:
+                # Функция для вычисления ответа
+                async def compute_response():
+                    # Используем новый API, если он есть у родительского класса
+                    if hasattr(super(), 'on_messages'):
+                        cancellation_token = None
+                        try:
+                            from autogen_core import CancellationToken
+                            cancellation_token = CancellationToken()
+                        except Exception:
+                            cancellation_token = None
+                        response = await super().on_messages(new_messages, cancellation_token)
+                        return getattr(getattr(response, 'chat_message', None), 'content', None) or ""
+                    # Полностью fallback
+                    return f"[{self.name}] Processed {len(new_messages)} messages"
+                
+                # Используем семантический кэш
+                response_content, from_cache, similarity = await semantic_cache.get_or_compute(
+                    query=last_content,
+                    compute_func=compute_response,
+                    agent_name=self.name,
+                    ttl=86400 * 7,  # Неделя для персонального использования
+                    model=getattr(self, 'model', 'gpt-4o-mini'),
+                    estimated_tokens=len(last_content.split()) * 3
+                )
+                
+                # Добавляем интеллектуальные функции если доступны
+                if ADVANCED_FEATURES and not from_cache:
+                    # Обучение с подкреплением
+                    if hasattr(self, 'learning_enabled') and self.learning_enabled:
+                        response_content = await learning_loop(self, last_content, response_content)
+                    
+                    # Добавление в граф знаний
+                    if hasattr(self, 'knowledge_enabled') and self.knowledge_enabled:
+                        await add_knowledge(self.name, last_content, response_content)
+                
+                return response_content
+            else:
+                # Без кэша - старая логика
+                if hasattr(super(), 'on_messages'):
                     cancellation_token = None
-                response = await super().on_messages(new_messages, cancellation_token)
-                return getattr(getattr(response, 'chat_message', None), 'content', None) or ""
-            # Полностью fallback
-            return f"[{self.name}] Processed {len(new_messages)} messages"
+                    try:
+                        from autogen_core import CancellationToken
+                        cancellation_token = CancellationToken()
+                    except Exception:
+                        cancellation_token = None
+                    response = await super().on_messages(new_messages, cancellation_token)
+                    return getattr(getattr(response, 'chat_message', None), 'content', None) or ""
+                return f"[{self.name}] Processed {len(new_messages)} messages"
         except Exception as e:
             print(f"Error in generate_reply_async: {e}")
             return f"[{self.name}] Error processing message"

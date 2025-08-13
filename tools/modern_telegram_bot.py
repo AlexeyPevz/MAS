@@ -212,11 +212,86 @@ class ModernTelegramBot:
     
     async def handle_voice(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Обработка голосовых сообщений"""
-        await update.message.reply_text(
-            "🎤 Голосовые сообщения будут поддержаны в следующей версии.\n"
-            "Пока пишите текстом! 😊"
-        )
-        self.stats["messages_sent"] += 1
+        if not self.enable_voice:
+            await update.message.reply_text(
+                "🎤 Голосовые сообщения отключены.\n"
+                "Пишите текстом! 😊"
+            )
+            self.stats["messages_sent"] += 1
+            return
+            
+        # Проверяем наличие голосового процессора
+        if not hasattr(self, 'voice_processor'):
+            # Пытаемся создать процессор
+            try:
+                from tools.core_voice_processor import VoiceProcessingCoordinator
+                api_key = os.getenv("YANDEX_SPEECHKIT_API_KEY", "")
+                
+                if api_key:
+                    self.voice_processor = VoiceProcessingCoordinator(api_key)
+                    await self.voice_processor.initialize()
+                    self.logger.info("🎤 Голосовой процессор инициализирован")
+                else:
+                    self.logger.warning("⚠️ YANDEX_SPEECHKIT_API_KEY не установлен")
+                    self.voice_processor = None
+            except Exception as e:
+                self.logger.error(f"❌ Ошибка инициализации голосового процессора: {e}")
+                self.voice_processor = None
+                
+        if not self.voice_processor:
+            await update.message.reply_text(
+                "🎤 Голосовая обработка временно недоступна."
+            )
+            return
+            
+        try:
+            # Получаем голосовое сообщение
+            voice = update.message.voice
+            if not voice:
+                return
+                
+            # Скачиваем файл
+            file = await context.bot.get_file(voice.file_id)
+            audio_data = await file.download_as_bytearray()
+            
+            user_id = str(update.effective_user.id)
+            chat_id = str(update.effective_chat.id)
+            
+            # Показываем, что обрабатываем
+            await context.bot.send_chat_action(
+                chat_id=update.effective_chat.id,
+                action="typing"
+            )
+            
+            # Обрабатываем голос
+            text, audio_response = await self.voice_processor.process_voice_message(
+                audio_data=bytes(audio_data),
+                user_id=user_id,
+                chat_id=chat_id,
+                process_response=True,
+                response_callback=self.mas_callback
+            )
+            
+            # Отправляем распознанный текст
+            await update.message.reply_text(
+                f"🎤 Распознано: {text}\n\n💬 Ответ: {await self.mas_callback(text)}"
+            )
+            
+            # Если есть аудио ответ - отправляем
+            if audio_response:
+                await update.message.reply_voice(
+                    voice=audio_response,
+                    caption="🔊 Голосовой ответ"
+                )
+                
+            self.stats["messages_sent"] += 2
+            
+        except Exception as e:
+            self.logger.error(f"❌ Ошибка обработки голоса: {e}")
+            await update.message.reply_text(
+                "😔 Не удалось обработать голосовое сообщение"
+            )
+            self.stats["errors"] += 1
     
     async def _process_with_mas(self, message: str, user_id: str) -> str:
         """Обработка сообщения через MAS систему"""
