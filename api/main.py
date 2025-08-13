@@ -593,9 +593,10 @@ async def simulate_agent_thinking(flow_id: str, user_message: str):
     # 5. Мета-агент распределяет задачи
     await visualization_manager.update_flow_stage(flow_id, "agent_processing")
     
-    selected_agents = ["researcher", "data_analyst", "creative_writer"]
+    # Используем агентов, которые точно есть в конфигурации
+    selected_agents = ["researcher", "multitool", "communicator"]
     for agent_id in selected_agents:
-        agent_name = next(p.name for p in AGENT_PROFILES if p.agent_id == agent_id)
+        agent_name = next((p.name for p in AGENT_PROFILES if p.agent_id == agent_id), agent_id.title())
         
         await visualization_manager.add_agent_thought(flow_id, AgentThought(
             agent_id="meta_agent",

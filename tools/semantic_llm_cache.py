@@ -9,15 +9,37 @@ import time
 from datetime import datetime, timezone
 from dataclasses import dataclass, field
 import asyncio
-import redis.asyncio as redis
 from collections import OrderedDict
 import pickle
-import numpy as np
 import logging
 
+# Опциональные импорты
+try:
+    import redis.asyncio as redis
+    REDIS_ASYNC_AVAILABLE = True
+except ImportError:
+    REDIS_ASYNC_AVAILABLE = False
+    redis = None
+
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+    np = None
+
 # Импорты из существующей системы
-from memory.chroma_store import ChromaMemoryStore
-from tools.quality_metrics import quality_metrics
+try:
+    from memory.chroma_store import ChromaMemoryStore
+    CHROMA_AVAILABLE = True
+except ImportError:
+    CHROMA_AVAILABLE = False
+    ChromaMemoryStore = None
+
+try:
+    from tools.quality_metrics import quality_metrics
+except ImportError:
+    quality_metrics = None
 
 logger = logging.getLogger(__name__)
 
@@ -55,8 +77,19 @@ class SemanticLLMCache:
         self.default_ttl = default_ttl
         
         # ChromaDB для семантического поиска
-        self.chroma_store = ChromaMemoryStore()
-        self.collection_name = chroma_collection
+        self._use_semantic = CHROMA_AVAILABLE and NUMPY_AVAILABLE
+        self._use_redis = REDIS_ASYNC_AVAILABLE
+        
+        if self._use_semantic:
+            self.chroma_store = ChromaMemoryStore()
+            self.collection_name = chroma_collection
+        else:
+            self.chroma_store = None
+            self.collection_name = None
+            logger.warning("⚠️ Semantic search disabled (ChromaDB or NumPy not available)")
+            
+        if not self._use_redis:
+            logger.warning("⚠️ Redis persistence disabled")
         
         # Локальный LRU кэш
         self.local_cache: OrderedDict[str, SemanticCacheEntry] = OrderedDict()
@@ -74,9 +107,26 @@ class SemanticLLMCache:
         
     async def initialize(self):
         """Инициализация подключений"""
-        self.redis_client = await redis.from_url(self.redis_url)
+        # Redis
+        if self._use_redis:
+            try:
+                self.redis_client = await redis.from_url(self.redis_url)
+                await self.redis_client.ping()
+            except Exception as e:
+                logger.warning(f"⚠️ Redis connection failed: {e}")
+                self.redis_client = None
+                self._use_redis = False
+        
         # ChromaDB инициализируется в ChromaMemoryStore
-        logger.info("Semantic LLM cache initialized")
+        mode = []
+        if self._use_redis:
+            mode.append("Redis")
+        if self._use_semantic:
+            mode.append("Semantic")
+        if not mode:
+            mode.append("Local-only")
+            
+        logger.info(f"Semantic LLM cache initialized ({', '.join(mode)} mode)")
         
     async def get_or_compute(
         self,
@@ -150,6 +200,9 @@ class SemanticLLMCache:
         top_k: int = 5
     ) -> List[Dict[str, Any]]:
         """Семантический поиск похожих запросов"""
+        if not self._use_semantic or not self.chroma_store:
+            return []
+            
         try:
             # Формируем метаданные для фильтрации
             where_clause = {"agent_name": agent_name} if agent_name else None

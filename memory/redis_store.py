@@ -9,11 +9,18 @@ redis_store.py
 
 from typing import Any, Optional
 import os
+import logging
 
 try:
     import redis  # type: ignore
+    REDIS_AVAILABLE = True
 except ImportError:  # pragma: no cover - optional dependency
     redis = None  # type: ignore
+    REDIS_AVAILABLE = False
+
+from memory.in_memory_store import InMemoryStore
+
+logger = logging.getLogger(__name__)
 
 
 class RedisStore:
@@ -24,15 +31,40 @@ class RedisStore:
         host: str | None = None,
         port: int | None = None,
         db: int | None = None,
+        use_fallback: bool = True,
     ) -> None:
-        if redis is None:
-            raise RuntimeError(
-                "Для работы RedisStore требуется библиотека redis-py. Установите её: pip install redis"
-            )
         self.host = host or os.getenv("REDIS_HOST", "localhost")
         self.port = port or int(os.getenv("REDIS_PORT", "6379"))
         self.db = db or int(os.getenv("REDIS_DB", "0"))
-        self.client = redis.Redis(host=self.host, port=self.port, db=self.db)
+        self._use_fallback = use_fallback
+        self._is_using_fallback = False
+        
+        if REDIS_AVAILABLE:
+            try:
+                self.client = redis.Redis(host=self.host, port=self.port, db=self.db)
+                # Проверяем подключение
+                self.client.ping()
+                logger.info(f"✅ Connected to Redis at {self.host}:{self.port}")
+            except Exception as e:
+                if self._use_fallback:
+                    logger.warning(f"⚠️ Redis недоступен ({e}), используем in-memory fallback")
+                    self._setup_fallback()
+                else:
+                    raise RuntimeError(f"Не удалось подключиться к Redis: {e}")
+        else:
+            if self._use_fallback:
+                logger.warning("⚠️ redis-py не установлен, используем in-memory fallback")
+                self._setup_fallback()
+            else:
+                raise RuntimeError(
+                    "Для работы RedisStore требуется библиотека redis-py. Установите её: pip install redis"
+                )
+    
+    def _setup_fallback(self):
+        """Настройка in-memory fallback."""
+        self._is_using_fallback = True
+        fallback = InMemoryStore()
+        self.client = fallback.client
 
     def set(self, key: str, value: Any, ttl: int = 3600) -> None:
         """Сохранить значение в Redis с TTL (в секундах)."""
