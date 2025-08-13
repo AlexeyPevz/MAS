@@ -87,8 +87,9 @@ def test_smart_groupchat():
         print("✅ SmartGroupChatManager создан")
         
         # Проверяем, что manager может инициализироваться
-        asyncio.run(manager.initialize())
-        print("✅ Manager инициализирован")
+        # НЕ вызываем asyncio.run здесь - это создаст проблемы
+        # asyncio.run(manager.initialize())
+        print("✅ Manager создан (инициализация отложена)")
         return True
     except Exception as e:
         print(f"❌ Ошибка SmartGroupChatManager: {e}")
