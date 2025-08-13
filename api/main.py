@@ -379,7 +379,7 @@ async def health_check():
     try:
         from memory.redis_store import RedisStore
         redis = RedisStore()
-        redis.store("health_check", "ok", expire=10)
+        redis.set("health_check", "ok", ttl=10)
         health_status["services"]["redis"] = "up"
     except Exception:
         health_status["services"]["redis"] = "down"
@@ -749,7 +749,7 @@ async def get_voice_stats():
         # Для примера возвращаем базовую информацию
         return {
             "core_available": AUTOGEN_CORE_AVAILABLE,
-            "speechkit_configured": bool(os.getenv("YANDEX_SPEECHKIT_API_KEY")),
+            "speechkit_configured": bool(os.getenv("YANDEX_API_KEY")),
             "optimization": "autogen-core based",
             "features": [
                 "Voice recognition caching",

@@ -30,11 +30,11 @@ except ImportError:
 
 # Импорты из существующей системы
 try:
-    from memory.chroma_store import ChromaMemoryStore
+    from memory.chroma_store import ChromaStore
     CHROMA_AVAILABLE = True
 except ImportError:
     CHROMA_AVAILABLE = False
-    ChromaMemoryStore = None
+    ChromaStore = None
 
 try:
     from tools.quality_metrics import quality_metrics
@@ -81,7 +81,7 @@ class SemanticLLMCache:
         self._use_redis = REDIS_ASYNC_AVAILABLE
         
         if self._use_semantic:
-            self.chroma_store = ChromaMemoryStore()
+            self.chroma_store = ChromaStore()
             self.collection_name = chroma_collection
         else:
             self.chroma_store = None

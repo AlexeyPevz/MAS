@@ -42,7 +42,9 @@ class ChromaStore:
         collection.add(ids=ids, documents=documents, metadatas=metadatas)
 
     def query(
-        self, collection_name: str, query_texts: List[str], n_results: int = 5
+        self, collection_name: str, query_texts: List[str], n_results: int = 5, where: Optional[dict] = None
     ) -> List[dict]:
         collection = self.client.get_or_create_collection(collection_name)
+        if where is not None:
+            return collection.query(query_texts=query_texts, n_results=n_results, where=where)
         return collection.query(query_texts=query_texts, n_results=n_results)
