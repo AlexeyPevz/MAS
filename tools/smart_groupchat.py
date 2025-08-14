@@ -297,6 +297,36 @@ class SmartGroupChatManager:
             
             self.logger.error(f"❌ Ошибка при обработке агентом {agent_name}: {e}")
             raise
+
+    # ------------------------------------------------------------------
+    # Dynamic agent management
+    # ------------------------------------------------------------------
+    def register_agent(self, name: str, agent: Any, routes: Optional[List[str]] = None) -> None:
+        """Зарегистрировать нового агента в рантайме.
+        
+        Args:
+            name: Имя агента
+            agent: Экземпляр агента (совместимый с BaseAgent/AssistantAgent)
+            routes: Необязательный список последующих агентов для маршрутизации
+        """
+        self.agents[name] = agent
+        if routes is not None:
+            self.routing[name] = list(routes)
+        self.logger.info("🧩 Зарегистрирован агент '%s' (всего: %d)", name, len(self.agents))
+
+    def unregister_agent(self, name: str) -> bool:
+        """Удалить агента из менеджера.
+        
+        Returns:
+            True если агент был удалён, иначе False.
+        """
+        existed = name in self.agents
+        if existed:
+            self.agents.pop(name, None)
+            # Удаляем маршруты, в которых фигурирует агент, только как ключ
+            self.routing.pop(name, None)
+            self.logger.info("🧹 Удалён агент '%s' (всего: %d)", name, len(self.agents))
+        return existed
     
     def _build_context_for_agent(self, agent_name: str, message: Message) -> List[Dict]:
         """Построение контекста разговора для агента"""
