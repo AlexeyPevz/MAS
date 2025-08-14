@@ -15,7 +15,6 @@ import logging
 from .budget_manager import BudgetManager
 from .llm_selector import retry_with_higher_tier, downgrade_with_budget
 from .multitool import register_tool_version
-from .multitool import register_instance_version
 from .validation import validate_tool_params
 import urllib.request
 
