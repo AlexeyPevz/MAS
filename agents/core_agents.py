@@ -3,7 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict
 
-# Импорт AutoGen v0.4+ с поддержкой новых API
+# Импорт AutoGen v0.9+ с поддержкой новых API
+# Fallback для случаев, если модули еще не установлены
 try:
     from autogen_agentchat.agents import AssistantAgent
     from autogen_ext.models.openai import OpenAIChatCompletionClient

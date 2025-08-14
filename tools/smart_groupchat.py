@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-# AutoGen v0.4+ is used via autogen-agentchat in agent implementations.
+# AutoGen v0.9+ is used via autogen-agentchat in agent implementations.
 # No direct imports from legacy autogen here.
 
 # Import quality metrics
@@ -156,7 +156,7 @@ class SmartGroupChatManager:
             except Exception as _:
                 pass
             
-            # Генерируем ответ от агента (async‑путь для v0.4+)
+            # Генерируем ответ от агента (async‑путь для v0.9+)
             if hasattr(agent, 'generate_reply_async') and asyncio.iscoroutinefunction(getattr(agent, 'generate_reply_async')):
                 try:
                     response_obj = await agent.generate_reply_async(
@@ -176,7 +176,7 @@ class SmartGroupChatManager:
                 except Exception as e:
                     self.logger.error(f"❌ LLM вызов агента {agent_name} failed: {e}")
                     if "on_messages" in str(e) or "autogen" in str(e).lower():
-                        self.logger.warning(f"⚠️ Возможна проблема с AutoGen v0.4 API, используем fallback")
+                        self.logger.warning(f"⚠️ Возможна проблема с AutoGen API, используем fallback")
                     response = self._generate_fallback_response(agent_name, message.content)
             elif hasattr(agent, 'generate_reply') and callable(getattr(agent, 'generate_reply')):
                 # Легаси‑путь: синхронные агенты, исполняем в отдельном потоке чтобы не блокировать event loop

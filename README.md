@@ -2,9 +2,9 @@
 
 [![Python](https://img.shields.io/badge/python-3.9--3.13-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![AutoGen](https://img.shields.io/badge/AutoGen-0.4+-orange.svg)](https://github.com/microsoft/autogen)
+[![AutoGen](https://img.shields.io/badge/AutoGen-0.9+-orange.svg)](https://github.com/microsoft/autogen)
 
-**Root-MAS** - самообучающаяся, саморасширяющаяся и проактивная мульти-агентная система на базе AutoGen v0.4+.
+**Root-MAS** - самообучающаяся, саморасширяющаяся и проактивная мульти-агентная система на базе AutoGen v0.9+.
 
 ## 🚀 Быстрый старт
 
