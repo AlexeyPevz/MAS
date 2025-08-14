@@ -501,7 +501,7 @@ async def voice_chat(audio_file: bytes, user_id: str = "voice_user"):
 # =============================================================================
 
 @app.post("/api/v1/chat/simple", response_model=ChatResponse, dependencies=[Depends(rate_limit_dependency)])
-async def simple_chat(message: ChatMessage, current_user: dict | None = Depends(auth_user_dependency)):
+async def simple_chat(message: ChatMessage, current_user: dict | None = None):
     """Простой чат без визуализации для тестирования"""
     try:
         # Обрабатываем сообщение через MAS
@@ -519,7 +519,7 @@ async def simple_chat(message: ChatMessage, current_user: dict | None = Depends(
 
 
 @app.post("/api/v1/chat/message", response_model=ChatResponse, dependencies=[Depends(rate_limit_dependency)])
-async def send_message_with_visualization(message: ChatMessage, current_user: dict | None = Depends(auth_user_dependency)):
+async def send_message_with_visualization(message: ChatMessage, current_user: dict | None = None):
     """Отправка сообщения с визуализацией мыслительного процесса"""
     try:
         # Начинаем новый поток визуализации
@@ -718,7 +718,7 @@ async def get_chat_history(limit: int = 50, offset: int = 0):
 
 @app.get("/api/v1/metrics/dashboard", response_model=SystemMetrics, dependencies=[Depends(rate_limit_dependency)])
 @require_permission("metrics:read")
-async def get_dashboard_metrics(current_user: dict | None = Depends(auth_user_dependency)):
+async def get_dashboard_metrics(current_user: dict | None = None):
     """Метрики для дашборда"""
     try:
         import psutil
@@ -783,7 +783,7 @@ async def get_voice_stats():
 
 @app.get("/api/v1/cache/stats", dependencies=[Depends(rate_limit_dependency)])
 @require_permission("memory:read")
-async def get_cache_stats(current_user: dict | None = Depends(auth_user_dependency)):
+async def get_cache_stats(current_user: dict | None = None):
     """Получение статистики семантического кэша"""
     if not SEMANTIC_CACHE_ENABLED:
         raise HTTPException(status_code=503, detail="Semantic cache not enabled")
@@ -813,7 +813,7 @@ async def get_cache_stats(current_user: dict | None = Depends(auth_user_dependen
 
 @app.post("/api/v1/cache/clear", dependencies=[Depends(rate_limit_dependency)])
 @require_permission("memory:write")
-async def clear_cache(partial: bool = False, current_user: dict | None = Depends(auth_user_dependency)):
+async def clear_cache(partial: bool = False, current_user: dict | None = None):
     """Очистка семантического кэша"""
     if not SEMANTIC_CACHE_ENABLED:
         raise HTTPException(status_code=503, detail="Semantic cache not enabled")
