@@ -15,6 +15,7 @@ import logging
 from .budget_manager import BudgetManager
 from .llm_selector import retry_with_higher_tier, downgrade_with_budget
 from .multitool import register_tool_version
+from .multitool import register_instance_version
 
 # Простой экземпляр менеджера бюджета
 budget_manager = BudgetManager(daily_limit=100.0)
@@ -56,6 +57,10 @@ def route_instance_creation(params: Dict[str, Any]) -> None:
             deploy_instance(directory, env, name, instance_type)
 
         print(f"[Instance-Factory] Инстанс {name} запущен")
+        try:
+            register_instance_version(name, {"type": instance_type, "env": env})
+        except Exception:
+            pass
     except Exception as exc:  # pragma: no cover - optional integration
         logging.error("[callback] instance creation failed: %s", exc)
         print(f"[Instance-Factory] Ошибка развёртывания: {exc}")

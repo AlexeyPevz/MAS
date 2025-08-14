@@ -36,6 +36,7 @@ from tools.multitool import (
     list_tools, list_workflows, list_apps,
     get_tool_versions, get_workflow_versions, get_app_versions,
     rollback_tool, rollback_workflow, rollback_app,
+    list_instances, get_instance_versions, rollback_instance,
 )
 
 # Import federation
@@ -954,6 +955,11 @@ async def registry_apps():
     return list_apps()
 
 
+@app.get("/api/v1/registry/instances")
+async def registry_instances():
+    return list_instances()
+
+
 @app.get("/api/v1/registry/tools/{name}/versions")
 async def registry_tool_versions(name: str):
     return get_tool_versions(name)
@@ -967,6 +973,11 @@ async def registry_workflow_versions(key: str):
 @app.get("/api/v1/registry/apps/{key}/versions")
 async def registry_app_versions(key: str):
     return get_app_versions(key)
+
+
+@app.get("/api/v1/registry/instances/{key}/versions")
+async def registry_instance_versions(key: str):
+    return get_instance_versions(key)
 
 
 @app.post("/api/v1/registry/tools/{name}/rollback")
@@ -988,6 +999,14 @@ async def registry_workflow_rollback(key: str, target_version: int | None = None
 @app.post("/api/v1/registry/apps/{key}/rollback")
 async def registry_app_rollback(key: str, target_version: int | None = None):
     ok = rollback_app(key, target_version)
+    if not ok:
+        raise HTTPException(status_code=400, detail="Rollback failed")
+    return {"status": "ok"}
+
+
+@app.post("/api/v1/registry/instances/{key}/rollback")
+async def registry_instance_rollback(key: str, target_version: int | None = None):
+    ok = rollback_instance(key, target_version)
     if not ok:
         raise HTTPException(status_code=400, detail="Rollback failed")
     return {"status": "ok"}

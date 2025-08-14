@@ -24,6 +24,7 @@ _REGISTRY: Dict[str, Dict[str, Any]] = {
     "tools": {},       # key -> {current_version:int, versions: {str->meta}, max_versions:int}
     "workflows": {},   # key -> {current_version:int, versions: {str->meta}, max_versions:int}
     "apps": {},        # key -> {current_version:int, versions: {str->meta}, max_versions:int}
+    "instances": {},   # key -> {current_version:int, versions: {str->meta}, max_versions:int}
 }
 _DEFAULT_MAX_VERSIONS = 5
 
@@ -38,8 +39,8 @@ def _ensure_data_dir() -> None:
 
 def _save_registry() -> None:
     _ensure_data_dir()
-    tmp = {"tools": {}, "workflows": {}, "apps": {}}
-    for cat in ("tools", "workflows", "apps"):
+    tmp = {"tools": {}, "workflows": {}, "apps": {}, "instances": {}}
+    for cat in ("tools", "workflows", "apps", "instances"):
         tmp[cat] = _REGISTRY.get(cat, {})
     with _REGISTRY_PATH.open("w", encoding="utf-8") as f:
         json.dump(tmp, f, indent=2, ensure_ascii=False)
@@ -52,7 +53,7 @@ def _load_registry() -> None:
         with _REGISTRY_PATH.open("r", encoding="utf-8") as f:
             data = json.load(f)
         with _REGISTRY_LOCK:
-            for cat in ("tools", "workflows", "apps"):
+            for cat in ("tools", "workflows", "apps", "instances"):
                 if isinstance(data.get(cat), dict):
                     _REGISTRY[cat] = data[cat]
     except Exception:
@@ -190,3 +191,19 @@ def get_app_versions(key: str) -> Dict[str, Any]:
 
 def rollback_app(key: str, target_version: Optional[int] = None) -> bool:
     return _rollback("apps", key, target_version)
+
+
+def register_instance_version(key: str, meta: Optional[Dict[str, Any]] = None, max_versions: int = _DEFAULT_MAX_VERSIONS) -> None:
+    _register_version("instances", key, meta or {}, max_versions)
+
+
+def list_instances() -> Dict[str, Dict[str, Any]]:
+    return _list_current("instances")
+
+
+def get_instance_versions(key: str) -> Dict[str, Any]:
+    return _get_versions("instances", key)
+
+
+def rollback_instance(key: str, target_version: Optional[int] = None) -> bool:
+    return _rollback("instances", key, target_version)
