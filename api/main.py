@@ -729,7 +729,7 @@ async def get_dashboard_metrics(current_user: dict | None = Depends(auth_user_de
         
         return SystemMetrics(
             total_messages=len(api_state.message_history),
-            active_agents=12 if api_state.groupchat_manager else 0,  # Placeholder
+            active_agents=(len(getattr(api_state.groupchat_manager, 'agents', {})) if api_state.groupchat_manager else 0),
             uptime=uptime,
             memory_usage=memory,
             cpu_usage=cpu
