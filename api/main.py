@@ -32,6 +32,11 @@ from api.security import rate_limit_dependency, require_permission, Role, auth_u
 from api.security import Token as AuthTokenModel
 from api.security import security_manager, SECRET_KEY, ALGORITHM
 import jwt
+from tools.multitool import (
+    list_tools, list_workflows, list_apps,
+    get_tool_versions, get_workflow_versions, get_app_versions,
+    rollback_tool, rollback_workflow, rollback_app,
+)
 
 # Import federation
 try:
@@ -928,6 +933,64 @@ async def get_logs(level: str = "INFO", limit: int = 100):
     except Exception as e:
         logger.error(f"❌ Ошибка получения логов: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# REGISTRY API (read-only + rollback)
+# =============================================================================
+
+@app.get("/api/v1/registry/tools")
+async def registry_tools():
+    return list_tools()
+
+
+@app.get("/api/v1/registry/workflows")
+async def registry_workflows():
+    return list_workflows()
+
+
+@app.get("/api/v1/registry/apps")
+async def registry_apps():
+    return list_apps()
+
+
+@app.get("/api/v1/registry/tools/{name}/versions")
+async def registry_tool_versions(name: str):
+    return get_tool_versions(name)
+
+
+@app.get("/api/v1/registry/workflows/{key}/versions")
+async def registry_workflow_versions(key: str):
+    return get_workflow_versions(key)
+
+
+@app.get("/api/v1/registry/apps/{key}/versions")
+async def registry_app_versions(key: str):
+    return get_app_versions(key)
+
+
+@app.post("/api/v1/registry/tools/{name}/rollback")
+async def registry_tool_rollback(name: str, target_version: int | None = None):
+    ok = rollback_tool(name, target_version)
+    if not ok:
+        raise HTTPException(status_code=400, detail="Rollback failed")
+    return {"status": "ok"}
+
+
+@app.post("/api/v1/registry/workflows/{key}/rollback")
+async def registry_workflow_rollback(key: str, target_version: int | None = None):
+    ok = rollback_workflow(key, target_version)
+    if not ok:
+        raise HTTPException(status_code=400, detail="Rollback failed")
+    return {"status": "ok"}
+
+
+@app.post("/api/v1/registry/apps/{key}/rollback")
+async def registry_app_rollback(key: str, target_version: int | None = None):
+    ok = rollback_app(key, target_version)
+    if not ok:
+        raise HTTPException(status_code=400, detail="Rollback failed")
+    return {"status": "ok"}
 
 
 # =============================================================================

@@ -14,6 +14,7 @@ import logging
 
 from .budget_manager import BudgetManager
 from .llm_selector import retry_with_higher_tier, downgrade_with_budget
+from .multitool import register_tool_version
 
 # Простой экземпляр менеджера бюджета
 budget_manager = BudgetManager(daily_limit=100.0)
@@ -184,6 +185,11 @@ def register_tool_callback(params: Dict[str, Any]) -> None:
         from .multitool import call
         # Демонстрационный вызов, в реальной системе — регистрация адаптера и smoke‑тест.
         call("register_tool", params)
+        # Фиксируем доступность инструмента в реестре версий
+        api_name = params.get("api_name") or params.get("name")
+        if api_name:
+            meta = {k: v for k, v in params.items() if k != "auth"}
+            register_tool_version(str(api_name), meta)
         print(f"[MultiTool] Инструмент '{params.get('api_name')}' зарегистрирован")
     except Exception as exc:
         logging.error("[callback] tool registration failed: %s", exc)
