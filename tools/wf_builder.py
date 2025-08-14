@@ -79,6 +79,7 @@ def create_workflow(spec: Any, n8n_base_url: str | None = None, api_key: str | N
         Ответ сервера n8n или None при ошибке.
     """
     from .n8n_client import N8NClient
+    from .multitool import register_workflow
 
     base_url = n8n_base_url or os.getenv("N8N_URL", "http://localhost:5678")
     key = api_key or os.getenv("N8N_API_KEY", "")
@@ -91,6 +92,10 @@ def create_workflow(spec: Any, n8n_base_url: str | None = None, api_key: str | N
     if result and result.get("id"):
         workflow_id = result["id"]
         client.activate_workflow(workflow_id)
+        try:
+            register_workflow(workflow_id, {"name": result.get("name"), "n8n_url": base_url})
+        except Exception:
+            pass
     return result
 
 
