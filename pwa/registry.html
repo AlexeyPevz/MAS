@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Root-MAS Registry</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-900">
+  <div class="max-w-6xl mx-auto py-8 px-4">
+    <div class="flex items-center justify-between mb-6">
+      <h1 class="text-2xl font-bold">Реестр ресурсов (версии и откаты)</h1>
+      <a href="/pwa/" class="text-blue-600 hover:underline">⟵ Вернуться в PWA</a>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <!-- Tools -->
+      <section class="bg-white rounded-lg shadow p-4">
+        <h2 class="text-lg font-semibold mb-3">Инструменты</h2>
+        <div id="tools-list" class="space-y-2 text-sm"></div>
+      </section>
+
+      <!-- Workflows -->
+      <section class="bg-white rounded-lg shadow p-4">
+        <h2 class="text-lg font-semibold mb-3">n8n Workflows</h2>
+        <div id="workflows-list" class="space-y-2 text-sm"></div>
+      </section>
+
+      <!-- Apps -->
+      <section class="bg-white rounded-lg shadow p-4">
+        <h2 class="text-lg font-semibold mb-3">Приложения</h2>
+        <div id="apps-list" class="space-y-2 text-sm"></div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    async function fetchJson(url, opts) {
+      const res = await fetch(url, opts);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    }
+
+    function el(tag, cls = "", text = "") {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text) e.textContent = text;
+      return e;
+    }
+
+    async function renderCategory(containerId, listUrl, versionsUrl, rollbackUrl, keyName) {
+      const root = document.getElementById(containerId);
+      root.innerHTML = "<div class=\"text-gray-500\">Загрузка...</div>";
+      try {
+        const items = await fetchJson(listUrl);
+        root.innerHTML = "";
+        const entries = Object.entries(items);
+        if (!entries.length) {
+          root.appendChild(el("div", "text-gray-500", "Пусто"));
+          return;
+        }
+        for (const [key, info] of entries) {
+          const box = el("div", "border rounded px-3 py-2");
+          const title = el("div", "font-medium");
+          title.textContent = `${key}`;
+          const meta = el("div", "text-xs text-gray-600 mt-1");
+          meta.textContent = `Текущая версия: ${info.current_version}`;
+
+          const actions = el("div", "mt-2 flex items-center gap-2");
+          const btnVersions = el("button", "text-blue-600 hover:underline text-xs", "Показать версии");
+          const versionsWrap = el("div", "mt-2 hidden");
+
+          btnVersions.onclick = async () => {
+            try {
+              const versions = await fetchJson(`${versionsUrl}/${encodeURIComponent(key)}/versions`);
+              versionsWrap.innerHTML = "";
+              const verList = el("div", "space-y-1");
+              const vers = Object.entries(versions.versions || {}).sort((a,b)=>Number(a[0])-Number(b[0]));
+              for (const [v, vmeta] of vers) {
+                const row = el("div", "flex items-center justify-between bg-gray-50 rounded px-2 py-1");
+                const label = el("div", "text-xs", `v${v} ${vmeta && vmeta.name ? `— ${vmeta.name}` : ""}`);
+                const rollbackBtn = el("button", "text-red-600 hover:underline text-xs", "Откатить на эту версию");
+                rollbackBtn.onclick = async () => {
+                  if (!confirm(`Откатить '${key}' на версию ${v}?`)) return;
+                  try {
+                    const res = await fetch(`${rollbackUrl}/${encodeURIComponent(key)}/rollback${keyName==="tools"?`?target_version=${v}`:`?target_version=${v}`}`, {method: "POST"});
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    alert("Откат выполнен");
+                    location.reload();
+                  } catch (e) {
+                    alert("Не удалось выполнить откат: " + e.message);
+                  }
+                };
+                row.appendChild(label);
+                row.appendChild(rollbackBtn);
+                verList.appendChild(row);
+              }
+              versionsWrap.appendChild(verList);
+              versionsWrap.classList.toggle("hidden");
+            } catch (e) {
+              versionsWrap.innerHTML = `<div class=\"text-xs text-red-600\">Ошибка загрузки версий: ${e.message}</div>`;
+              versionsWrap.classList.remove("hidden");
+            }
+          };
+
+          actions.appendChild(btnVersions);
+          box.appendChild(title);
+          box.appendChild(meta);
+          box.appendChild(actions);
+          box.appendChild(versionsWrap);
+          root.appendChild(box);
+        }
+      } catch (e) {
+        root.innerHTML = `<div class=\"text-red-600 text-sm\">Ошибка: ${e.message}</div>`;
+      }
+    }
+
+    // Инициализация
+    renderCategory("tools-list", "/api/v1/registry/tools", "/api/v1/registry/tools", "/api/v1/registry/tools", "tools");
+    renderCategory("workflows-list", "/api/v1/registry/workflows", "/api/v1/registry/workflows", "/api/v1/registry/workflows", "workflows");
+    renderCategory("apps-list", "/api/v1/registry/apps", "/api/v1/registry/apps", "/api/v1/registry/apps", "apps");
+  </script>
+</body>
+</html>
