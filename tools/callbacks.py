@@ -150,3 +150,41 @@ def research_validation_cycle(query: str) -> None:
         print(f"[ResearchFlow] сохранено {len(results)} результатов по запросу '{query}'")
     else:
         print(f"[ResearchFlow] не удалось подтвердить источники для '{query}'")
+
+
+def create_agent_callback(spec: Dict[str, Any]) -> None:
+    """Создать и зарегистрировать нового агента по спецификации.
+
+    Ожидаемые поля spec:
+        name: str
+        role: str
+        tier/model/prompt/routes: опционально
+    """
+    logging.info("[callback] create_agent_callback: %s", spec)
+    try:
+        from agents.core_agents import AgentBuilderAgent
+        builder = AgentBuilderAgent()
+        builder.build(spec)
+        print(f"[Agent-Builder] Агент '{spec.get('name')}' создан и зарегистрирован")
+    except Exception as exc:
+        logging.error("[callback] agent creation failed: %s", exc)
+        print(f"[Agent-Builder] Ошибка создания агента: {exc}")
+
+
+def register_tool_callback(params: Dict[str, Any]) -> None:
+    """Зарегистрировать новый инструмент/интеграцию через MultiTool.
+
+    Ожидаемые поля params:
+        api_name: str
+        docs_url: str (optional)
+        auth: dict (optional)
+    """
+    logging.info("[callback] register_tool_callback: %s", params)
+    try:
+        from .multitool import call
+        # Демонстрационный вызов, в реальной системе — регистрация адаптера и smoke‑тест.
+        call("register_tool", params)
+        print(f"[MultiTool] Инструмент '{params.get('api_name')}' зарегистрирован")
+    except Exception as exc:
+        logging.error("[callback] tool registration failed: %s", exc)
+        print(f"[MultiTool] Ошибка регистрации инструмента: {exc}")
