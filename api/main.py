@@ -859,18 +859,20 @@ async def prometheus_metrics() -> PlainTextResponse:
 
 @app.get("/api/v1/agents/status")
 async def get_agents_status():
-    """Статус всех агентов"""
+    """Статус всех агентов (динамически)."""
     try:
-        # Пока заглушка, потом интегрируем с реальными агентами
-        agents = [
-            AgentStatus(name="meta", status="active", message_count=15),
-            AgentStatus(name="communicator", status="active", message_count=32),
-            AgentStatus(name="researcher", status="idle", message_count=8),
-            AgentStatus(name="coordination", status="active", message_count=12),
-        ]
-        
+        if not api_state.groupchat_manager:
+            return {"agents": [], "total": 0}
+        # Считаем активность по истории сообщений
+        stats = {}
+        try:
+            stats = api_state.groupchat_manager.get_agent_statistics()
+        except Exception:
+            stats = {}
+        agents = []
+        for name in getattr(api_state.groupchat_manager, "agents", {}).keys():
+            agents.append(AgentStatus(name=name, status="active", message_count=stats.get(name, 0)))
         return {"agents": agents, "total": len(agents)}
-        
     except Exception as e:
         logger.error(f"❌ Ошибка получения статуса агентов: {e}")
         raise HTTPException(status_code=500, detail=str(e))
