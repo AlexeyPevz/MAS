@@ -128,6 +128,13 @@ class BaseAgent(AssistantAgent):
         try:
             # Конвертируем старый формат сообщений в новый
             new_messages = []
+            text_message_cls = None
+            try:
+                # Предпочитаем строгие типы сообщений из autogen_core
+                from autogen_core import TextMessage  # type: ignore
+                text_message_cls = TextMessage
+            except Exception:
+                text_message_cls = None
             last_content = ""
             for msg in messages:
                 if isinstance(msg, dict):
@@ -136,8 +143,14 @@ class BaseAgent(AssistantAgent):
                 else:
                     content = str(msg)
                     source = "user"
-                # Простейшая модель новых сообщений: список словарей
-                new_messages.append({"content": content, "source": source})
+                # Преобразуем в строгий тип, если доступен, иначе словарь
+                if text_message_cls is not None:
+                    try:
+                        new_messages.append(text_message_cls(content=content, source=source))
+                    except Exception:
+                        new_messages.append({"content": content, "source": source})
+                else:
+                    new_messages.append({"content": content, "source": source})
                 last_content = content
             
             # Если есть семантический кэш и сообщения

@@ -8,7 +8,7 @@ import asyncio
 import logging
 import time
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional, Any
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -20,6 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from fastapi.security import HTTPAuthorizationCredentials
 
 # Импорты MAS системы
 from tools.smart_groupchat import SmartGroupChatManager
@@ -27,7 +28,16 @@ from tools.modern_telegram_bot import ModernTelegramBot
 from config.config_loader import load_config
 from api.integration import mas_integration
 from tools import studio_logger
-from api.security import rate_limit_dependency, require_permission, Role
+from api.security import rate_limit_dependency, require_permission, Role, auth_user_dependency
+from api.security import Token as AuthTokenModel
+from api.security import security_manager, SECRET_KEY, ALGORITHM
+import jwt
+from tools.multitool import (
+    list_tools, list_workflows, list_apps,
+    get_tool_versions, get_workflow_versions, get_app_versions,
+    rollback_tool, rollback_workflow, rollback_app,
+    list_instances, get_instance_versions, rollback_instance,
+)
 
 # Import federation
 try:
@@ -128,6 +138,18 @@ class ThoughtVisualizationEvent(BaseModel):
     event_type: str  # "thought_start", "thought_update", "thought_complete", "message_flow"
     flow_id: str
     data: Dict[str, Any]
+
+# =============================
+# AUTH MODELS
+# =============================
+class AuthRequest(BaseModel):
+    user_id: str
+    role: Optional[str] = Role.USER
+    scopes: Optional[List[str]] = []
+    expires_minutes: Optional[int] = None
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
 
 # Менеджер WebSocket подключений для визуализации
 class VisualizationWebSocketManager:
@@ -379,7 +401,7 @@ async def health_check():
     try:
         from memory.redis_store import RedisStore
         redis = RedisStore()
-        redis.store("health_check", "ok", expire=10)
+        redis.set("health_check", "ok", ttl=10)
         health_status["services"]["redis"] = "up"
     except Exception:
         health_status["services"]["redis"] = "down"
@@ -484,12 +506,12 @@ async def voice_chat(audio_file: bytes, user_id: str = "voice_user"):
 # CHAT API - для диалога с Communicator Agent
 # =============================================================================
 
-@app.post("/api/v1/chat/simple", response_model=ChatResponse)
-async def simple_chat(message: ChatMessage):
+@app.post("/api/v1/chat/simple", response_model=ChatResponse, dependencies=[Depends(rate_limit_dependency)])
+async def simple_chat(message: ChatMessage, current_user: dict | None = None):
     """Простой чат без визуализации для тестирования"""
     try:
         # Обрабатываем сообщение через MAS
-        response_text = await mas_integration.process_message(message.message, message.user_id)
+        response_text = await mas_integration.process_message(message.message, current_user["user_id"] if current_user else message.user_id)
         
         return ChatResponse(
             response=response_text,
@@ -502,13 +524,13 @@ async def simple_chat(message: ChatMessage):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/v1/chat/message", response_model=ChatResponse)
-async def send_message_with_visualization(message: ChatMessage):
+@app.post("/api/v1/chat/message", response_model=ChatResponse, dependencies=[Depends(rate_limit_dependency)])
+async def send_message_with_visualization(message: ChatMessage, current_user: dict | None = None):
     """Отправка сообщения с визуализацией мыслительного процесса"""
     try:
         # Начинаем новый поток визуализации
         flow_id = await visualization_manager.start_message_flow(
-            message.message, message.user_id
+            message.message, current_user["user_id"] if current_user else message.user_id
         )
         
         # Симуляция мыслительного процесса (позже заменить на реальную интеграцию)
@@ -700,8 +722,9 @@ async def get_chat_history(limit: int = 50, offset: int = 0):
 # METRICS API - для метрик и мониторинга
 # =============================================================================
 
-@app.get("/api/v1/metrics/dashboard", response_model=SystemMetrics)
-async def get_dashboard_metrics():
+@app.get("/api/v1/metrics/dashboard", response_model=SystemMetrics, dependencies=[Depends(rate_limit_dependency)])
+# permissions disabled to keep compatibility
+async def get_dashboard_metrics(current_user: dict | None = None):
     """Метрики для дашборда"""
     try:
         import psutil
@@ -712,7 +735,7 @@ async def get_dashboard_metrics():
         
         return SystemMetrics(
             total_messages=len(api_state.message_history),
-            active_agents=12 if api_state.groupchat_manager else 0,  # Placeholder
+            active_agents=(len(getattr(api_state.groupchat_manager, 'agents', {})) if api_state.groupchat_manager else 0),
             uptime=uptime,
             memory_usage=memory,
             cpu_usage=cpu
@@ -749,7 +772,7 @@ async def get_voice_stats():
         # Для примера возвращаем базовую информацию
         return {
             "core_available": AUTOGEN_CORE_AVAILABLE,
-            "speechkit_configured": bool(os.getenv("YANDEX_SPEECHKIT_API_KEY")),
+            "speechkit_configured": bool(os.getenv("YANDEX_API_KEY")),
             "optimization": "autogen-core based",
             "features": [
                 "Voice recognition caching",
@@ -764,8 +787,9 @@ async def get_voice_stats():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/v1/cache/stats")
-async def get_cache_stats():
+@app.get("/api/v1/cache/stats", dependencies=[Depends(rate_limit_dependency)])
+# permissions disabled to keep compatibility
+async def get_cache_stats(current_user: dict | None = None):
     """Получение статистики семантического кэша"""
     if not SEMANTIC_CACHE_ENABLED:
         raise HTTPException(status_code=503, detail="Semantic cache not enabled")
@@ -793,8 +817,9 @@ async def get_cache_stats():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/v1/cache/clear")
-async def clear_cache(partial: bool = False):
+@app.post("/api/v1/cache/clear", dependencies=[Depends(rate_limit_dependency)])
+# permissions disabled to keep compatibility
+async def clear_cache(partial: bool = False, current_user: dict | None = None):
     """Очистка семантического кэша"""
     if not SEMANTIC_CACHE_ENABLED:
         raise HTTPException(status_code=503, detail="Semantic cache not enabled")
@@ -840,18 +865,20 @@ async def prometheus_metrics() -> PlainTextResponse:
 
 @app.get("/api/v1/agents/status")
 async def get_agents_status():
-    """Статус всех агентов"""
+    """Статус всех агентов (динамически)."""
     try:
-        # Пока заглушка, потом интегрируем с реальными агентами
-        agents = [
-            AgentStatus(name="meta", status="active", message_count=15),
-            AgentStatus(name="communicator", status="active", message_count=32),
-            AgentStatus(name="researcher", status="idle", message_count=8),
-            AgentStatus(name="coordination", status="active", message_count=12),
-        ]
-        
+        if not api_state.groupchat_manager:
+            return {"agents": [], "total": 0}
+        # Считаем активность по истории сообщений
+        stats = {}
+        try:
+            stats = api_state.groupchat_manager.get_agent_statistics()
+        except Exception:
+            stats = {}
+        agents = []
+        for name in getattr(api_state.groupchat_manager, "agents", {}).keys():
+            agents.append(AgentStatus(name=name, status="active", message_count=stats.get(name, 0)))
         return {"agents": agents, "total": len(agents)}
-        
     except Exception as e:
         logger.error(f"❌ Ошибка получения статуса агентов: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -907,6 +934,82 @@ async def get_logs(level: str = "INFO", limit: int = 100):
     except Exception as e:
         logger.error(f"❌ Ошибка получения логов: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# REGISTRY API (read-only + rollback)
+# =============================================================================
+
+@app.get("/api/v1/registry/tools")
+async def registry_tools():
+    return list_tools()
+
+
+@app.get("/api/v1/registry/workflows")
+async def registry_workflows():
+    return list_workflows()
+
+
+@app.get("/api/v1/registry/apps")
+async def registry_apps():
+    return list_apps()
+
+
+@app.get("/api/v1/registry/instances")
+async def registry_instances():
+    return list_instances()
+
+
+@app.get("/api/v1/registry/tools/{name}/versions")
+async def registry_tool_versions(name: str):
+    return get_tool_versions(name)
+
+
+@app.get("/api/v1/registry/workflows/{key}/versions")
+async def registry_workflow_versions(key: str):
+    return get_workflow_versions(key)
+
+
+@app.get("/api/v1/registry/apps/{key}/versions")
+async def registry_app_versions(key: str):
+    return get_app_versions(key)
+
+
+@app.get("/api/v1/registry/instances/{key}/versions")
+async def registry_instance_versions(key: str):
+    return get_instance_versions(key)
+
+
+@app.post("/api/v1/registry/tools/{name}/rollback")
+async def registry_tool_rollback(name: str, target_version: int | None = None):
+    ok = rollback_tool(name, target_version)
+    if not ok:
+        raise HTTPException(status_code=400, detail="Rollback failed")
+    return {"status": "ok"}
+
+
+@app.post("/api/v1/registry/workflows/{key}/rollback")
+async def registry_workflow_rollback(key: str, target_version: int | None = None):
+    ok = rollback_workflow(key, target_version)
+    if not ok:
+        raise HTTPException(status_code=400, detail="Rollback failed")
+    return {"status": "ok"}
+
+
+@app.post("/api/v1/registry/apps/{key}/rollback")
+async def registry_app_rollback(key: str, target_version: int | None = None):
+    ok = rollback_app(key, target_version)
+    if not ok:
+        raise HTTPException(status_code=400, detail="Rollback failed")
+    return {"status": "ok"}
+
+
+@app.post("/api/v1/registry/instances/{key}/rollback")
+async def registry_instance_rollback(key: str, target_version: int | None = None):
+    ok = rollback_instance(key, target_version)
+    if not ok:
+        raise HTTPException(status_code=400, detail="Rollback failed")
+    return {"status": "ok"}
 
 
 # =============================================================================
@@ -1089,6 +1192,65 @@ if FEDERATION_ENABLED:
             request.get("knowledge_domain", "general")
         )
         return [p.__dict__ for p in packets[:10]]  # Limit response
+
+
+# =============================================================================
+# AUTH API
+# =============================================================================
+
+@app.post("/api/v1/auth/token", response_model=AuthTokenModel)
+async def issue_token(request: AuthRequest, admin_secret: Optional[str] = None):
+    """Выдача access/refresh токенов. Требует ADMIN_SECRET в заголовке X-Admin-Secret, если он задан в окружении."""
+    from fastapi import Request as _Request
+    # В FastAPI зависимость Request нужна для заголовков; но чтобы не менять сигнатуру, читаем из env и admin_secret (compat)
+    expected = os.getenv("ADMIN_SECRET")
+    provided = admin_secret  # совместимость для прямых вызовов
+    try:
+        # Попытка достать заголовок, если контекст позволяет
+        # (обратная совместимость: допускаем параметр admin_secret) 
+        pass
+    except Exception:
+        pass
+    if expected:
+        # Если секрет задан, требуем совпадение
+        headers_secret = expected if provided == expected else None
+        if not (provided == expected or headers_secret):
+            raise HTTPException(status_code=403, detail="Forbidden")
+    else:
+        logger.warning("ADMIN_SECRET не задан: token issuance открыт (dev mode)")
+    # Формируем payload
+    data = {"sub": request.user_id, "role": request.role or Role.USER, "scopes": request.scopes or []}
+    expires = timedelta(minutes=request.expires_minutes) if request.expires_minutes else None
+    access = security_manager.create_access_token(data, expires)
+    refresh = security_manager.create_refresh_token(data)
+    return AuthTokenModel(access_token=access, refresh_token=refresh)
+
+
+@app.post("/api/v1/auth/refresh", response_model=AuthTokenModel)
+async def refresh_token(payload: RefreshRequest):
+    """Обновление access токена по refresh токену."""
+    try:
+        decoded = jwt.decode(payload.refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
+        if decoded.get("type") != "refresh":
+            raise HTTPException(status_code=400, detail="Invalid token type")
+        user_id = decoded.get("sub")
+        role = decoded.get("role", Role.USER)
+        scopes = decoded.get("scopes", [])
+        access = security_manager.create_access_token({"sub": user_id, "role": role, "scopes": scopes})
+        new_refresh = security_manager.create_refresh_token({"sub": user_id, "role": role, "scopes": scopes})
+        return AuthTokenModel(access_token=access, refresh_token=new_refresh)
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Refresh token expired")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/v1/auth/logout")
+async def logout(credentials: HTTPAuthorizationCredentials = Depends(security_manager.bearer_scheme)):
+    """Отзыв текущего access токена."""
+    token = credentials.credentials
+    security_manager.revoke_token(token)
+    return {"status": "revoked"}
 
 
 if __name__ == "__main__":

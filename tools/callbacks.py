@@ -14,6 +14,9 @@ import logging
 
 from .budget_manager import BudgetManager
 from .llm_selector import retry_with_higher_tier, downgrade_with_budget
+from .multitool import register_tool_version
+from .validation import validate_tool_params
+import urllib.request
 
 # Простой экземпляр менеджера бюджета
 budget_manager = BudgetManager(daily_limit=100.0)
@@ -55,6 +58,10 @@ def route_instance_creation(params: Dict[str, Any]) -> None:
             deploy_instance(directory, env, name, instance_type)
 
         print(f"[Instance-Factory] Инстанс {name} запущен")
+        try:
+            register_instance_version(name, {"type": instance_type, "env": env})
+        except Exception:
+            pass
     except Exception as exc:  # pragma: no cover - optional integration
         logging.error("[callback] instance creation failed: %s", exc)
         print(f"[Instance-Factory] Ошибка развёртывания: {exc}")
@@ -150,3 +157,57 @@ def research_validation_cycle(query: str) -> None:
         print(f"[ResearchFlow] сохранено {len(results)} результатов по запросу '{query}'")
     else:
         print(f"[ResearchFlow] не удалось подтвердить источники для '{query}'")
+
+
+def create_agent_callback(spec: Dict[str, Any]) -> None:
+    """Создать и зарегистрировать нового агента по спецификации.
+
+    Ожидаемые поля spec:
+        name: str
+        role: str
+        tier/model/prompt/routes: опционально
+    """
+    logging.info("[callback] create_agent_callback: %s", spec)
+    try:
+        from agents.core_agents import AgentBuilderAgent
+        builder = AgentBuilderAgent()
+        builder.build(spec)
+        print(f"[Agent-Builder] Агент '{spec.get('name')}' создан и зарегистрирован")
+    except Exception as exc:
+        logging.error("[callback] agent creation failed: %s", exc)
+        print(f"[Agent-Builder] Ошибка создания агента: {exc}")
+
+
+def register_tool_callback(params: Dict[str, Any]) -> None:
+    """Зарегистрировать новый инструмент/интеграцию через MultiTool.
+
+    Ожидаемые поля params:
+        api_name: str
+        docs_url: str (optional)
+        auth: dict (optional)
+    """
+    logging.info("[callback] register_tool_callback: %s", params)
+    try:
+        from .multitool import call
+        # Демонстрационный вызов, в реальной системе — регистрация адаптера и smoke‑тест.
+        ok, msg = validate_tool_params(params)
+        if not ok:
+            logging.warning("[register_tool_callback] invalid params: %s", msg)
+        docs_url = params.get("docs_url")
+        if docs_url:
+            try:
+                with urllib.request.urlopen(docs_url, timeout=5) as r:  # nosec - простая проверка доступности
+                    if r.status != 200:
+                        logging.warning("[register_tool_callback] docs_url status: %s", r.status)
+            except Exception as e:
+                logging.warning("[register_tool_callback] docs_url fetch error: %s", e)
+        call("register_tool", params)
+        # Фиксируем доступность инструмента в реестре версий
+        api_name = params.get("api_name") or params.get("name")
+        if api_name:
+            meta = {k: v for k, v in params.items() if k != "auth"}
+            register_tool_version(str(api_name), meta)
+        print(f"[MultiTool] Инструмент '{params.get('api_name')}' зарегистрирован")
+    except Exception as exc:
+        logging.error("[callback] tool registration failed: %s", exc)
+        print(f"[MultiTool] Ошибка регистрации инструмента: {exc}")

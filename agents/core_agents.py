@@ -3,7 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict
 
-# Импорт AutoGen v0.4+ с поддержкой новых API
+# Импорт AutoGen v0.9+ с поддержкой новых API
+# Fallback для случаев, если модули еще не установлены
 try:
     from autogen_agentchat.agents import AssistantAgent
     from autogen_ext.models.openai import OpenAIChatCompletionClient
@@ -104,9 +105,56 @@ class AgentBuilderAgent(BaseAgent):
         super().__init__("agent_builder", model, tier)
 
     def build(self, spec: Dict[str, Any]) -> None:
-        from autogen import agentchat
-
-        agentchat.build_from_spec(spec)
+        """Динамически создать и зарегистрировать агента по спецификации.
+        
+        Expected spec fields:
+            name: str
+            role: str (описание роли, влияет на системный промпт)
+            tier: str (cheap|standard|premium) [optional]
+            model: str [optional]
+            prompt: str [optional, system prompt override]
+            routes: list[str] [optional]
+        """
+        name = spec.get("name")
+        if not name:
+            raise ValueError("Agent spec must include 'name'")
+        role = spec.get("role", name)
+        tier = spec.get("tier", "cheap")
+        model = spec.get("model", "gpt-4o-mini")
+        prompt_override = spec.get("prompt")
+        routes = spec.get("routes") or []
+        
+        # Создаём BaseAgent с опциональной подменой системного промпта
+        agent_kwargs: Dict[str, Any] = {}
+        if prompt_override:
+            agent_kwargs["system_message"] = prompt_override
+        new_agent = BaseAgent(name=name, model=model, tier=tier, **agent_kwargs)
+        
+        # Регистрируем в менеджере группового чата
+        try:
+            from tools.smart_groupchat import SmartGroupChatManager
+            # Поиск существующего менеджера: в реальном API держится в состоянии
+            # Здесь предполагается, что внешний код передаст ссылку на manager.register_agent
+            # Поэтому предоставляем точечный вызов через модульную регистрацию, если доступно
+            # (в большинстве сценариев регистрация вызывается через api.integration)
+        except Exception:
+            pass
+        # Глобальная регистрация через MAS интеграцию если доступна
+        try:
+            from api.integration import mas_integration  # type: ignore
+            if getattr(mas_integration, "mas_manager", None):
+                mas_integration.mas_manager.register_agent(name, new_agent, routes)
+        except Exception:
+            # Если API уровень недоступен, оставляем создание агента на вызывающий код
+            pass
+        
+        # Персистим промпт при наличии
+        if prompt_override:
+            try:
+                from tools.prompt_builder import create_agent_prompt
+                create_agent_prompt(name, prompt_override)
+            except Exception:
+                pass
 
 
 @dataclass

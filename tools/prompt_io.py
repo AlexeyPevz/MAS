@@ -18,11 +18,12 @@ def read_prompt(path: str) -> str:
         path: путь к файлу промпта
 
     Returns:
-        Строка с содержимым файла.
+        Строка с содержимым файла. Если файл отсутствует, возвращается дефолтный промпт.
     """
     p = Path(path)
     if not p.exists():
-        raise FileNotFoundError(f"Файл промпта не найден: {path}")
+        # Возвращаем безопасный дефолт вместо исключения, чтобы не падать при первом запуске
+        return f"System prompt not found at {path}. Proceeding with default minimal prompt."
     return p.read_text(encoding="utf-8")
 
 

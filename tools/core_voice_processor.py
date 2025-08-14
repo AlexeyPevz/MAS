@@ -381,9 +381,9 @@ class VoiceProcessingCoordinator:
 async def example_usage():
     """Пример использования оптимизированного голосового процессора"""
     
-    api_key = os.getenv("YANDEX_SPEECHKIT_API_KEY", "")
+    api_key = os.getenv("YANDEX_API_KEY", "")
     if not api_key:
-        print("❌ YANDEX_SPEECHKIT_API_KEY не установлен")
+        print("❌ YANDEX_API_KEY не установлен")
         return
         
     # Создаем координатор

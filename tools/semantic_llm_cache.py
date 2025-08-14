@@ -30,11 +30,11 @@ except ImportError:
 
 # Импорты из существующей системы
 try:
-    from memory.chroma_store import ChromaMemoryStore
+    from memory.chroma_store import ChromaStore
     CHROMA_AVAILABLE = True
 except ImportError:
     CHROMA_AVAILABLE = False
-    ChromaMemoryStore = None
+    ChromaStore = None
 
 try:
     from tools.quality_metrics import quality_metrics
@@ -81,7 +81,7 @@ class SemanticLLMCache:
         self._use_redis = REDIS_ASYNC_AVAILABLE
         
         if self._use_semantic:
-            self.chroma_store = ChromaMemoryStore()
+            self.chroma_store = ChromaStore()
             self.collection_name = chroma_collection
         else:
             self.chroma_store = None
@@ -251,6 +251,8 @@ class SemanticLLMCache:
     
     async def _get_cached_entry(self, key: str) -> Optional[SemanticCacheEntry]:
         """Получение записи из Redis"""
+        if not self.redis_client:
+            return None
         try:
             data = await self.redis_client.get(f"llm_cache:{key}")
             if data:
@@ -287,14 +289,15 @@ class SemanticLLMCache:
         )
         
         # 1. Сохраняем в Redis
-        try:
-            await self.redis_client.setex(
-                f"llm_cache:{key}",
-                ttl,
-                pickle.dumps(entry)
-            )
-        except Exception as e:
-            logger.error(f"Redis save error: {e}")
+        if self.redis_client:
+            try:
+                await self.redis_client.setex(
+                    f"llm_cache:{key}",
+                    ttl,
+                    pickle.dumps(entry)
+                )
+            except Exception as e:
+                logger.error(f"Redis save error: {e}")
         
         # 2. Сохраняем в ChromaDB для семантического поиска
         try:

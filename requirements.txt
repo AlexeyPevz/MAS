@@ -1,7 +1,7 @@
 # Core dependencies
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
-aiohttp>=3.9.0
+aiohttp>=3.9.5
 pydantic>=2.4.0
 python-multipart>=0.0.6
 aiofiles>=23.1.0
@@ -58,4 +58,4 @@ scipy>=1.13.0  # Обновлено для совместимости с Python 
 networkx==3.2.1
 
 # Federation support
-aiohttp==3.9.5
+# (merged into core aiohttp requirement)

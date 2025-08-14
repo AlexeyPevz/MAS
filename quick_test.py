@@ -70,7 +70,7 @@ def check_imports():
         import autogen_agentchat
         import autogen_ext
         import autogen_core
-        print_status("ok", "AutoGen v0.4+ установлен")
+        print_status("ok", "AutoGen v0.9+ установлен")
     except ImportError as e:
         print_status("error", f"AutoGen не установлен: {e}")
         print_status("info", "Запустите: pip install autogen-agentchat>=0.5.1 autogen-ext[openai]>=0.5.5")

@@ -148,22 +148,30 @@ class ModernTelegramBot:
     async def status_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Обработка команды /status"""
         uptime = datetime.now(self.timezone) - self.stats["start_time"]
+        # Попытка получить количество активных агентов через callback, если он предоставлен
+        active_agents_text = "неизвестно"
+        try:
+            if hasattr(self, "get_active_agents") and callable(getattr(self, "get_active_agents")):
+                count = await getattr(self, "get_active_agents")()
+                active_agents_text = str(count)
+        except Exception:
+            pass
         
         status_message = f"""
-📊 Статус MAS System
-
-⏰ Время работы: {uptime}
-📨 Сообщений получено: {self.stats['messages_received']}
-📤 Сообщений отправлено: {self.stats['messages_sent']}
-❌ Ошибок: {self.stats['errors']}
-
-🤖 Система: Активна
-🔗 Агенты: 12 активных
-🧠 LLM: OpenRouter интеграция
-        """
-        
-        await update.message.reply_text(status_message.strip())
-        self.stats["messages_sent"] += 1
+ 📊 Статус MAS System
+ 
+ ⏰ Время работы: {uptime}
+ 📨 Сообщений получено: {self.stats['messages_received']}
+ 📤 Сообщений отправлено: {self.stats['messages_sent']}
+ ❌ Ошибок: {self.stats['errors']}
+ 
+ 🤖 Система: Активна
+ 🔗 Агенты: {active_agents_text} активных
+ 🧠 LLM: OpenRouter интеграция
+         """
+         
+         await update.message.reply_text(status_message.strip())
+         self.stats["messages_sent"] += 1
     
     async def handle_text(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Обработка текстовых сообщений"""
@@ -225,14 +233,14 @@ class ModernTelegramBot:
             # Пытаемся создать процессор
             try:
                 from tools.core_voice_processor import VoiceProcessingCoordinator
-                api_key = os.getenv("YANDEX_SPEECHKIT_API_KEY", "")
+                api_key = os.getenv("YANDEX_API_KEY", "")
                 
                 if api_key:
                     self.voice_processor = VoiceProcessingCoordinator(api_key)
                     await self.voice_processor.initialize()
                     self.logger.info("🎤 Голосовой процессор инициализирован")
                 else:
-                    self.logger.warning("⚠️ YANDEX_SPEECHKIT_API_KEY не установлен")
+                    self.logger.warning("⚠️ YANDEX_API_KEY не установлен")
                     self.voice_processor = None
             except Exception as e:
                 self.logger.error(f"❌ Ошибка инициализации голосового процессора: {e}")

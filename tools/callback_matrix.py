@@ -20,6 +20,9 @@ CALLBACK_NAMES: Dict[str, str] = {
     "BUDGET_GUARD": "budget_guard_callback",
     "OUTGOING_TO_TELEGRAM": "outgoing_to_telegram",
     "RESEARCH_TASK": "research_validation_cycle",
+    # Новые события для динамического расширения системы
+    "CREATE_AGENT": "create_agent_callback",
+    "REGISTER_TOOL": "register_tool_callback",
 }
 
 

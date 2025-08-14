@@ -54,6 +54,7 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     user_id: str
     scopes: list[str] = []
+    role: str = Role.USER
 
 
 class RateLimiter:
@@ -195,7 +196,7 @@ class SecurityManager:
                     detail="Invalid token"
                 )
             
-            return TokenData(user_id=user_id, scopes=payload.get("scopes", []))
+            return TokenData(user_id=user_id, scopes=payload.get("scopes", []), role=payload.get("role", Role.USER))
             
         except jwt.ExpiredSignatureError:
             raise HTTPException(
@@ -287,6 +288,10 @@ async def admin_endpoint(
 """
 
 # Dependencies
+def auth_user_dependency(current: TokenData = Depends(get_current_user)) -> dict:
+    """Return a plain dict with user info for endpoints that accept current_user: dict."""
+    return {"user_id": current.user_id, "scopes": current.scopes, "role": current.role}
+
 def rate_limit_dependency(request: Request):
     """Rate limiting dependency"""
     client_ip = request.client.host
