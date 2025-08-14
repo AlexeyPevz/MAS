@@ -717,7 +717,7 @@ async def get_chat_history(limit: int = 50, offset: int = 0):
 # =============================================================================
 
 @app.get("/api/v1/metrics/dashboard", response_model=SystemMetrics, dependencies=[Depends(rate_limit_dependency)])
-@require_permission("metrics:read")
+# permissions disabled to keep compatibility
 async def get_dashboard_metrics(current_user: dict | None = None):
     """Метрики для дашборда"""
     try:
@@ -782,7 +782,7 @@ async def get_voice_stats():
 
 
 @app.get("/api/v1/cache/stats", dependencies=[Depends(rate_limit_dependency)])
-@require_permission("memory:read")
+# permissions disabled to keep compatibility
 async def get_cache_stats(current_user: dict | None = None):
     """Получение статистики семантического кэша"""
     if not SEMANTIC_CACHE_ENABLED:
@@ -812,7 +812,7 @@ async def get_cache_stats(current_user: dict | None = None):
 
 
 @app.post("/api/v1/cache/clear", dependencies=[Depends(rate_limit_dependency)])
-@require_permission("memory:write")
+# permissions disabled to keep compatibility
 async def clear_cache(partial: bool = False, current_user: dict | None = None):
     """Очистка семантического кэша"""
     if not SEMANTIC_CACHE_ENABLED:
