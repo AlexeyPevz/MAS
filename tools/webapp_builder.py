@@ -11,6 +11,7 @@ webapp_builder.py
 from typing import Dict, Any, Optional
 from .gpt_pilot import create_app as pilot_create_app, status as pilot_status
 from .multitool import register_app_version
+from .validation import validate_app_spec
 
 
 def create_app(spec_json: Dict[str, Any]) -> str:
@@ -22,6 +23,9 @@ def create_app(spec_json: Dict[str, Any]) -> str:
     Returns:
         ID задачи GPT‑Pilot.
     """
+    ok, msg = validate_app_spec(spec_json)
+    if not ok:
+        print(f"[webapp_builder] warning: invalid app spec: {msg}")
     app_id = pilot_create_app(spec_json)
     try:
         register_app_version(app_id, {"spec": spec_json})

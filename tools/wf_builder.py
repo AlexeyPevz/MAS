@@ -80,6 +80,7 @@ def create_workflow(spec: Any, n8n_base_url: str | None = None, api_key: str | N
     """
     from .n8n_client import N8NClient
     from .multitool import register_workflow_version
+    from .validation import validate_workflow_spec
 
     base_url = n8n_base_url or os.getenv("N8N_URL", "http://localhost:5678")
     key = api_key or os.getenv("N8N_API_KEY", "")
@@ -87,6 +88,9 @@ def create_workflow(spec: Any, n8n_base_url: str | None = None, api_key: str | N
         workflow_json = spec
     else:
         workflow_json = generate_n8n_json(str(spec))
+    ok, msg = validate_workflow_spec(workflow_json if isinstance(workflow_json, dict) else spec)
+    if not ok:
+        print(f"[wf_builder] warning: invalid workflow spec: {msg}")
     client = N8NClient(base_url, key)
     result = client.create_workflow(workflow_json)
     if result and result.get("id"):

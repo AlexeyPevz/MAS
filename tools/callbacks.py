@@ -16,6 +16,8 @@ from .budget_manager import BudgetManager
 from .llm_selector import retry_with_higher_tier, downgrade_with_budget
 from .multitool import register_tool_version
 from .multitool import register_instance_version
+from .validation import validate_tool_params
+import urllib.request
 
 # Простой экземпляр менеджера бюджета
 budget_manager = BudgetManager(daily_limit=100.0)
@@ -189,6 +191,17 @@ def register_tool_callback(params: Dict[str, Any]) -> None:
     try:
         from .multitool import call
         # Демонстрационный вызов, в реальной системе — регистрация адаптера и smoke‑тест.
+        ok, msg = validate_tool_params(params)
+        if not ok:
+            logging.warning("[register_tool_callback] invalid params: %s", msg)
+        docs_url = params.get("docs_url")
+        if docs_url:
+            try:
+                with urllib.request.urlopen(docs_url, timeout=5) as r:  # nosec - простая проверка доступности
+                    if r.status != 200:
+                        logging.warning("[register_tool_callback] docs_url status: %s", r.status)
+            except Exception as e:
+                logging.warning("[register_tool_callback] docs_url fetch error: %s", e)
         call("register_tool", params)
         # Фиксируем доступность инструмента в реестре версий
         api_name = params.get("api_name") or params.get("name")
