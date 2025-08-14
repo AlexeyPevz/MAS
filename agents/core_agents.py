@@ -104,8 +104,10 @@ class AgentBuilderAgent(BaseAgent):
         super().__init__("agent_builder", model, tier)
 
     def build(self, spec: Dict[str, Any]) -> None:
-        from autogen import agentchat
-
+        try:
+            from autogen import agentchat  # type: ignore
+        except Exception as e:
+            raise RuntimeError("Legacy autogen is not available; AgentBuilder requires migration or proper dependency") from e
         agentchat.build_from_spec(spec)
 
 

@@ -225,14 +225,14 @@ class ModernTelegramBot:
             # Пытаемся создать процессор
             try:
                 from tools.core_voice_processor import VoiceProcessingCoordinator
-                api_key = os.getenv("YANDEX_SPEECHKIT_API_KEY", "")
+                api_key = os.getenv("YANDEX_API_KEY", "")
                 
                 if api_key:
                     self.voice_processor = VoiceProcessingCoordinator(api_key)
                     await self.voice_processor.initialize()
                     self.logger.info("🎤 Голосовой процессор инициализирован")
                 else:
-                    self.logger.warning("⚠️ YANDEX_SPEECHKIT_API_KEY не установлен")
+                    self.logger.warning("⚠️ YANDEX_API_KEY не установлен")
                     self.voice_processor = None
             except Exception as e:
                 self.logger.error(f"❌ Ошибка инициализации голосового процессора: {e}")

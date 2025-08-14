@@ -501,7 +501,6 @@ async def voice_chat(audio_file: bytes, user_id: str = "voice_user"):
 # =============================================================================
 
 @app.post("/api/v1/chat/simple", response_model=ChatResponse, dependencies=[Depends(rate_limit_dependency)])
-@require_permission("chat:write")
 async def simple_chat(message: ChatMessage, current_user: dict | None = Depends(auth_user_dependency)):
     """Простой чат без визуализации для тестирования"""
     try:
@@ -520,7 +519,6 @@ async def simple_chat(message: ChatMessage, current_user: dict | None = Depends(
 
 
 @app.post("/api/v1/chat/message", response_model=ChatResponse, dependencies=[Depends(rate_limit_dependency)])
-@require_permission("chat:write")
 async def send_message_with_visualization(message: ChatMessage, current_user: dict | None = Depends(auth_user_dependency)):
     """Отправка сообщения с визуализацией мыслительного процесса"""
     try:
