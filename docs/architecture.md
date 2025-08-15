@@ -1,119 +1,158 @@
-# Архитектура Root‑MAS
+# Root-MAS Architecture
 
-Этот документ описывает общую структуру многоагентной системы (MAS),
-которая разворачивается в репозитории `root_mas`. Архитектура
-разработана так, чтобы быть расширяемой, модульной и легко
-интегрируемой с внешними сервисами (n8n, PostgreSQL, Redis, ChromaDB,
-GPT‑Pilot, Telegram и др.).
+## Overview
 
-![Architecture diagram](architecture.svg)
+Root-MAS is a self-learning, self-expanding, and proactive Multi-Agent System built on top of Microsoft AutoGen v0.5+. The system is designed to evolve and improve through real-world interactions.
 
-## Слои архитектуры
+## System Architecture
 
 ```
-┌────────────────  Interface ───────────────┐
-│ Telegram Bot (STT/TTS) · AutoGen Studio   │
-└───────────────▲───────────────▲───────────┘
-                │               │
-                │               │ logs/json
-                │               │
-     voice/text │               ▼
-┌─────────────────────────────────────────────┐
-│      COGNITIVE LAYER – Root GroupChat       │
-│ Meta │ Coordination │ PromptBuilder │ …     │
-└────────────────▲────────────────────────────┘
-                 │tools / callbacks
-                 ▼
-┌─────────────────────────────────────────────┐
-│      INTEGRATION LAYER                      │
-│ n8n-Workflow-Builder │ MultiTool │ GPT-Pilot│
-└────────────────▲────────────────────────────┘
-                 │
-                 ▼
-┌─────────────────────────────────────────────┐
-│      MEMORY & DATA                          │
-│ Redis (cache) · Postgres (tasks) · Chroma    │
-└─────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                         Client Layer                             │
+├─────────────────┬──────────────────┬────────────────────────────┤
+│   PWA (React)   │  Telegram Bot   │      REST API Clients      │
+└────────┬────────┴────────┬─────────┴──────────┬─────────────────┘
+         │                 │                    │
+         └─────────────────┴────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      API Gateway (FastAPI)                       │
+│  ┌────────────┬──────────────┬─────────────┬───────────────┐  │
+│  │   Auth     │   Rate Limit │    CORS     │   WebSocket   │  │
+│  └────────────┴──────────────┴─────────────┴───────────────┘  │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    MAS Integration Layer                         │
+│  ┌────────────────────────┴─────────────────────────────────┐  │
+│  │              SmartGroupChatManager                        │  │
+│  └────────────────────────┬─────────────────────────────────┘  │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                        Agents Layer                              │
+│  ┌─────────────┬──────────────┬──────────────┬──────────────┐  │
+│  │Communicator │     Meta     │ Coordination │  Researcher  │  │
+│  ├─────────────┼──────────────┼──────────────┼──────────────┤  │
+│  │Model Select │Prompt Builder│Agent Builder │ Fact Checker │  │
+│  ├─────────────┼──────────────┼──────────────┼──────────────┤  │
+│  │  MultiTool  │WorkflowBuild │ WebappBuild  │InstanceFactory│  │
+│  └─────────────┴──────────────┴──────────────┴──────────────┘  │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     Intelligence Layer                           │
+│  ┌─────────────┬──────────────┬──────────────┬──────────────┐  │
+│  │  Q-Learning │ A/B Testing  │Knowledge Graph│ Federation   │  │
+│  ├─────────────┼──────────────┼──────────────┼──────────────┤  │
+│  │Quality Metrics│Error Handler│Event Sourcing│Semantic Cache│  │
+│  └─────────────┴──────────────┴──────────────┴──────────────┘  │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      Storage Layer                               │
+│  ┌─────────────┬──────────────┬──────────────┬──────────────┐  │
+│  │    Redis    │  PostgreSQL  │   ChromaDB   │ File System  │  │
+│  │  (Cache)    │ (Persistent) │  (Vectors)   │   (Logs)     │  │
+│  └─────────────┴──────────────┴──────────────┴──────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-### Interface
-На верхнем уровне располагается пользовательский интерфейс —
-телеграм‑бот (или другой клиент) с поддержкой преобразования речи в
-текст (STT) и обратно (TTS), а также AutoGen Studio для визуализации
-графа сообщений и анализа логов.
+## Key Components
 
-### Cognitive Layer
-Корневой GroupChat (Cognitive Layer) управляет взаимодействием
-корневых агентов: `Meta`, `Coordination`, `Prompt‑Builder`,
-`Model‑Selector`, `Agent‑Builder`, `Instance‑Factory`, `Researcher`,
-`Fact‑Checker`, `MultiTool`, `WF‑Builder`, `WebApp‑Builder`, и
-`Communicator`. Каждый агент имеет собственную роль, системный
-промпт и память.
+### 1. API Gateway (FastAPI)
+- **Purpose**: Single entry point for all client interactions
+- **Features**:
+  - JWT-based authentication
+  - Role-based access control (RBAC)
+  - Rate limiting
+  - WebSocket support for real-time communication
+  - Request/response validation
 
-### Integration Layer
-Интеграционный слой содержит инструменты, через которые MAS
-взаимодействует с внешним миром: генерация workflow для n8n,
-вызовы внешних API (MultiTool), интеграция с GPT‑Pilot для
-создания web‑приложений. Здесь же подключаются callback‑функции
-(`callbacks.py`) и их матрица (`callback_matrix.py`).
+### 2. MAS Integration Layer
+- **SmartGroupChatManager**: Orchestrates agent communication
+- **Features**:
+  - Message routing based on agent capabilities
+  - Context preservation across conversations
+  - Parallel agent execution
+  - Fallback mechanisms
 
-### Memory & Data
-Для хранения и кэширования данных используются:
+### 3. Agent System
+Each agent has specialized responsibilities:
 
-- **Redis** — временное хранилище (TTL) для статусов задач, временных токенов и cron‑таймеров.
-- **PostgreSQL** — постоянное хранилище задач, сведений о развернутых инстансах и расписания cron‑заданий.
-- **ChromaDB** — векторное хранилище для долговременной памяти и RAG (загрузка документов, поиск по ним).
+#### Core Agents:
+- **Communicator**: User interaction, intent understanding
+- **Meta**: High-level planning and strategy
+- **Coordination**: Task decomposition and delegation
+- **Researcher**: Information gathering and validation
 
-## Корневые агенты
+#### Specialized Agents:
+- **ModelSelector**: Optimal LLM selection based on task
+- **PromptBuilder**: Dynamic prompt optimization
+- **AgentBuilder**: Runtime agent creation
+- **FactChecker**: Information verification
 
-В `config/agents.yaml` определены все корневые агенты и их роли. Каждый
-агент привязан к уровню модели LLM (cheap, standard, premium) и
-собственной памяти. В папке `prompts/agents/*` для каждого агента
-хранятся системные промпты.
+#### Tool Agents:
+- **MultiTool**: External API integration
+- **WorkflowBuilder**: n8n workflow creation
+- **WebappBuilder**: Application generation
+- **InstanceFactory**: Component instantiation
 
-Краткие роли агентов:
+### 4. Intelligence Layer
+Advanced capabilities that make the system self-improving:
 
-- **Meta** — оркестратор, следит за целями и распределяет задачи.
-- **Coordination** — очередь задач и планировщик cron.
-- **Prompt‑Builder** — управление и аудит системных промптов.
-- **Model‑Selector** — выбор LLM с учётом стоимости и качества.
-- **Agent‑Builder** — создание новых агентов на лету.
-- **Instance‑Factory** — развёртывание MAS‑инстансов через Docker.
-- **Researcher** — поиск информации и RAG.
-- **Fact‑Checker** — проверка достоверности данных.
-- **MultiTool** — единая точка доступа к внешним API.
-- **WF‑Builder** — генерация и отправка n8n‑workflow.
-- **WebApp‑Builder** — интеграция с GPT‑Pilot для web‑приложений.
-- **Communicator** — взаимодействие с пользователем в Telegram.
+- **Q-Learning**: Reinforcement learning from interactions
+- **A/B Testing**: Automatic prompt optimization
+- **Knowledge Graph**: Semantic understanding of relationships
+- **Federation**: Knowledge sharing between instances
+- **Quality Metrics**: Performance tracking and optimization
+- **Semantic Cache**: Intelligent response caching
 
-## Каскад LLM
-В файле `config/llm_tiers.yaml` определены уровни моделей и их
-последовательность. Модуль `tools/llm_selector.py` реализует функции
-`pick_config` (получить модель для текущего уровня) и
-`retry_with_higher_tier` (повышение уровня при ошибке). Модуль
-`budget_manager.py` отслеживает расход средств и сигнализирует о
-необходимости понизить уровень модели.
+### 5. Storage Layer
+Multi-level persistence strategy:
 
-## Callback‑матрица
-Callback‑функции описаны в `tools/callbacks.py`, а матрица
-соответствий событий и callback — в `tools/callback_matrix.py`. Они
-обеспечивают обработку событий (создание инстансов, генерация
-workflow, создание инструментов, отправка сообщений в Telegram и др.).
+- **Redis**: Short-term memory, rate limiting, cache
+- **PostgreSQL**: Long-term memory, audit trails
+- **ChromaDB**: Vector embeddings for semantic search
+- **File System**: Logs, temporary files
 
-## Хранилища
-Модули в пакете `memory/` предоставляют клиентские классы для работы с
-Redis, PostgreSQL и ChromaDB. Их можно использовать для реализации
-памяти агентов и общей глобальной памяти.
+## Data Flow
 
-## Интеграция
-Модули `tools/n8n_client.py`, `tools/wf_builder.py`, `tools/multitool.py`,
-`tools/gpt_pilot.py`, `tools/webapp_builder.py`, `tools/researcher.py` и
-`tools/fact_checker.py` служат для интеграции с n8n, внешними API,
-GPT‑Pilot и веб‑поиском. Модуль `tools/modern_telegram_bot.py` содержит
-пример бота для Telegram.
+1. **Request Reception**: Client sends request to API Gateway
+2. **Authentication**: JWT token validation and permission check
+3. **Rate Limiting**: Request frequency validation
+4. **Integration**: Request forwarded to MAS Integration Layer
+5. **Orchestration**: SmartGroupChatManager determines agent routing
+6. **Processing**: Agents collaborate to process request
+7. **Intelligence**: Learning systems capture metrics and improve
+8. **Response**: Result sent back through API Gateway
 
-## Спринты
-План работ делится на 14 спринтов, где каждый спринт расширяет
-функциональность системы: от первоначальной версии до внедрения
-наблюдаемости, безопасности и документации. Подробности см. в
-`docs/sprints.md`.
+## Security Architecture
+
+- **Authentication**: JWT with refresh tokens
+- **Authorization**: Role-based (Admin, User, Agent, ReadOnly)
+- **Encryption**: TLS for transport, bcrypt for passwords
+- **Rate Limiting**: Per-IP and per-user limits
+- **Input Validation**: Pydantic models for all inputs
+- **Audit Trail**: Event sourcing for all actions
+
+## Scalability Considerations
+
+- **Horizontal Scaling**: Stateless API servers
+- **Agent Pool**: Dynamic agent spawning based on load
+- **Cache Strategy**: Multi-level caching (local, Redis, semantic)
+- **Database Pooling**: Connection pooling for all databases
+- **Message Queue**: Async task processing (future)
+
+## Deployment Architecture
+
+- **Containerization**: Docker for all components
+- **Orchestration**: Docker Compose for development, K8s ready
+- **Monitoring**: Prometheus metrics, Grafana dashboards
+- **Logging**: Centralized JSON logging
+- **Health Checks**: Liveness and readiness probes

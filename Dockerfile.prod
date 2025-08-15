@@ -3,7 +3,7 @@
 # ------------------------------------------------------------
 # Stage 0: builder (installs python dependencies)
 # ------------------------------------------------------------
-FROM python:3.10-slim AS builder
+FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
@@ -19,7 +19,7 @@ RUN pip install --user --no-cache-dir --upgrade pip \
 # ------------------------------------------------------------
 # Final stage: runtime image
 # ------------------------------------------------------------
-FROM python:3.10-slim AS runtime
+FROM python:3.11-slim AS runtime
 
 WORKDIR /app
 
@@ -38,5 +38,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # By default run echo goal for health-check. Override with `-e MAS_GOAL="..."`.
 ENV MAS_GOAL="echo"
 
-ENTRYPOINT ["python", "run_system.py"]
-CMD ["--goal", "$MAS_GOAL"]
+# Run with uvicorn for production
+EXPOSE 8000
+ENTRYPOINT ["uvicorn", "api.main:app"]
+CMD ["--host", "0.0.0.0", "--port", "8000", "--workers", "2"]

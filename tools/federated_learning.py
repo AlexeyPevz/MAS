@@ -6,6 +6,7 @@ from typing import Dict, Any, List, Optional, Set
 from datetime import datetime, timezone, timedelta
 from dataclasses import dataclass, field
 import json
+import os
 import hashlib
 import asyncio
 import aiohttp
@@ -58,7 +59,9 @@ class FederationRequest:
 class FederatedLearningHub:
     """Центральный хаб федеративного обучения"""
     
-    def __init__(self, node_id: str, storage_path: str = "/workspace/data/federation"):
+    def __init__(self, node_id: str, storage_path: str = None):
+        if storage_path is None:
+            storage_path = os.path.join(os.getenv("DATA_PATH", "/app/data"), "federation")
         self.node_id = node_id
         self.storage_path = Path(storage_path)
         self.storage_path.mkdir(parents=True, exist_ok=True)
