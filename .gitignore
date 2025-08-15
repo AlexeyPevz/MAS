@@ -22,3 +22,8 @@ dist/
 # Local configuration files
 .vscode/
 *.swp
+
+# Security - never commit secrets
+.secret_key
+*.pem
+*.key

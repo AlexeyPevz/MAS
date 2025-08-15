@@ -25,7 +25,10 @@ def get_secret_key():
         return secret
     
     # Try to load from file
-    secret_file = Path('/workspace/.secret_key')
+    data_dir = Path(os.getenv('DATA_PATH', '/app/data'))
+    data_dir.mkdir(parents=True, exist_ok=True)
+    secret_file = data_dir / '.secret_key'
+    
     if secret_file.exists():
         return secret_file.read_text().strip()
     
@@ -49,6 +52,14 @@ class Token(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+
+
+# Role definitions - moved before TokenData
+class Role:
+    ADMIN = "admin"
+    USER = "user"
+    AGENT = "agent"
+    READONLY = "readonly"
 
 
 class TokenData(BaseModel):
@@ -106,13 +117,6 @@ class RateLimiter:
             return True
 
 rate_limiter = RateLimiter()
-
-# Role definitions
-class Role:
-    ADMIN = "admin"
-    USER = "user"
-    AGENT = "agent"
-    READONLY = "readonly"
 
 # Permission definitions
 PERMISSIONS = {
@@ -214,12 +218,31 @@ class SecurityManager:
         self.blocked_tokens.add(token)
     
     def hash_password(self, password: str) -> str:
-        """Hash password using SHA-256"""
-        return hashlib.sha256(password.encode()).hexdigest()
+        """Hash password using bcrypt"""
+        try:
+            import bcrypt
+            # Generate salt and hash password
+            salt = bcrypt.gensalt()
+            hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+            return hashed.decode('utf-8')
+        except ImportError:
+            # Fallback to SHA-256 if bcrypt not installed (dev only)
+            import warnings
+            warnings.warn("bcrypt not installed, using SHA-256 (insecure!)")
+            return hashlib.sha256(password.encode()).hexdigest()
     
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
         """Verify password against hash"""
-        return self.hash_password(plain_password) == hashed_password
+        try:
+            import bcrypt
+            # bcrypt verification
+            return bcrypt.checkpw(
+                plain_password.encode('utf-8'), 
+                hashed_password.encode('utf-8')
+            )
+        except ImportError:
+            # Fallback to SHA-256 comparison
+            return hashlib.sha256(plain_password.encode()).hexdigest() == hashed_password
 
 
 # Dependency injection

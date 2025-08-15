@@ -15,11 +15,11 @@ from pathlib import Path
 
 import httpx
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Depends, BackgroundTasks
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Depends, BackgroundTasks, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from fastapi.security import HTTPAuthorizationCredentials
 
 # Импорты MAS системы
@@ -28,7 +28,7 @@ from tools.modern_telegram_bot import ModernTelegramBot
 from config.config_loader import load_config
 from api.integration import mas_integration
 from tools import studio_logger
-from api.security import rate_limit_dependency, require_permission, Role, auth_user_dependency
+from api.security import rate_limit_dependency, require_permission, Role, auth_user_dependency, check_permission
 from api.security import Token as AuthTokenModel
 from api.security import security_manager, SECRET_KEY, ALGORITHM
 import jwt
@@ -36,7 +36,6 @@ from tools.multitool import (
     list_tools, list_workflows, list_apps,
     get_tool_versions, get_workflow_versions, get_app_versions,
     rollback_tool, rollback_workflow, rollback_app,
-    list_instances, get_instance_versions, rollback_instance,
 )
 
 # Import federation
@@ -56,9 +55,9 @@ except ImportError:
 
 # Pydantic модели для API
 class ChatMessage(BaseModel):
-    message: str
-    user_id: Optional[str] = "api_user"
-    metadata: Optional[Dict[str, Any]] = {}
+    message: str = Field(..., min_length=1, max_length=10000, description="Message text")
+    user_id: Optional[str] = Field(default="api_user", regex=r'^[a-zA-Z0-9_-]+$', max_length=100)
+    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
 
 class ChatResponse(BaseModel):
@@ -143,10 +142,10 @@ class ThoughtVisualizationEvent(BaseModel):
 # AUTH MODELS
 # =============================
 class AuthRequest(BaseModel):
-    user_id: str
-    role: Optional[str] = Role.USER
-    scopes: Optional[List[str]] = []
-    expires_minutes: Optional[int] = None
+    user_id: str = Field(..., regex=r'^[a-zA-Z0-9_-]+$', max_length=100)
+    role: Optional[str] = Field(default=Role.USER, regex=r'^(admin|user|agent|readonly)$')
+    scopes: Optional[List[str]] = Field(default_factory=list)
+    expires_minutes: Optional[int] = Field(default=None, ge=1, le=10080)  # max 1 week
 
 class RefreshRequest(BaseModel):
     refresh_token: str
@@ -303,12 +302,13 @@ app = FastAPI(
 )
 
 # CORS middleware
+cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # В продакшене указать конкретные домены
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=cors_origins,
+    allow_credentials=True if os.getenv("ENVIRONMENT") == "development" else False,
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Authorization", "Content-Type", "X-Admin-Secret"],
 )
 
 # Путь к PWA статике
@@ -485,8 +485,12 @@ async def voice_chat(audio_file: bytes, user_id: str = "voice_user"):
             raise HTTPException(status_code=400, detail=text or "Ошибка распознавания")
         
         # 2. Обрабатываем через MAS
-        chat_msg = ChatMessage(message=text, user_id=user_id)
-        chat_response = await send_message(chat_msg)
+        response_text = await mas_integration.process_message(text, user_id)
+        chat_response = ChatResponse(
+            response=response_text,
+            timestamp=time.time(),
+            agent="voice_assistant"
+        )
         
         # 3. Синтезируем голосовой ответ
         audio_data = await synthesize_response(chat_response.response)
@@ -849,8 +853,14 @@ async def clear_cache(partial: bool = False, current_user: dict | None = None):
 
 
 @app.get("/metrics", include_in_schema=False)
-async def prometheus_metrics() -> PlainTextResponse:
+async def prometheus_metrics(
+    current_user: dict = Depends(auth_user_dependency)
+) -> PlainTextResponse:
     """Экспорт Prometheus метрик, если клиент установлен."""
+    # Проверяем права на чтение метрик
+    role = current_user.get('role', Role.USER)
+    if not check_permission(role, "metrics:read"):
+        raise HTTPException(status_code=403, detail="Access denied to metrics")
     try:
         from prometheus_client import REGISTRY, generate_latest, CONTENT_TYPE_LATEST  # type: ignore
     except Exception:
@@ -981,7 +991,15 @@ async def registry_instance_versions(key: str):
 
 
 @app.post("/api/v1/registry/tools/{name}/rollback")
-async def registry_tool_rollback(name: str, target_version: int | None = None):
+async def registry_tool_rollback(
+    name: str, 
+    target_version: int | None = None,
+    current_user: dict = Depends(auth_user_dependency)
+):
+    # Проверяем права администратора
+    if current_user.get('role') != Role.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
     ok = rollback_tool(name, target_version)
     if not ok:
         raise HTTPException(status_code=400, detail="Rollback failed")
@@ -989,7 +1007,15 @@ async def registry_tool_rollback(name: str, target_version: int | None = None):
 
 
 @app.post("/api/v1/registry/workflows/{key}/rollback")
-async def registry_workflow_rollback(key: str, target_version: int | None = None):
+async def registry_workflow_rollback(
+    key: str, 
+    target_version: int | None = None,
+    current_user: dict = Depends(auth_user_dependency)
+):
+    # Проверяем права администратора
+    if current_user.get('role') != Role.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
     ok = rollback_workflow(key, target_version)
     if not ok:
         raise HTTPException(status_code=400, detail="Rollback failed")
@@ -997,18 +1023,33 @@ async def registry_workflow_rollback(key: str, target_version: int | None = None
 
 
 @app.post("/api/v1/registry/apps/{key}/rollback")
-async def registry_app_rollback(key: str, target_version: int | None = None):
+async def registry_app_rollback(
+    key: str, 
+    target_version: int | None = None,
+    current_user: dict = Depends(auth_user_dependency)
+):
+    # Проверяем права администратора
+    if current_user.get('role') != Role.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
     ok = rollback_app(key, target_version)
     if not ok:
         raise HTTPException(status_code=400, detail="Rollback failed")
     return {"status": "ok"}
 
 
-@app.post("/api/v1/registry/instances/{key}/rollback")
-async def registry_instance_rollback(key: str, target_version: int | None = None):
-    ok = rollback_instance(key, target_version)
-    if not ok:
-        raise HTTPException(status_code=400, detail="Rollback failed")
+@app.post("/api/v1/registry/instances/{key}/rollback") 
+async def registry_instance_rollback(
+    key: str, 
+    target_version: int | None = None,
+    current_user: dict = Depends(auth_user_dependency)
+):
+    # Проверяем права администратора
+    if current_user.get('role') != Role.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Функция rollback_instance не существует в multitool, возвращаем ошибку
+    raise HTTPException(status_code=501, detail="Instance rollback not implemented")
     return {"status": "ok"}
 
 
@@ -1199,25 +1240,29 @@ if FEDERATION_ENABLED:
 # =============================================================================
 
 @app.post("/api/v1/auth/token", response_model=AuthTokenModel)
-async def issue_token(request: AuthRequest, admin_secret: Optional[str] = None):
-    """Выдача access/refresh токенов. Требует ADMIN_SECRET в заголовке X-Admin-Secret, если он задан в окружении."""
-    from fastapi import Request as _Request
-    # В FastAPI зависимость Request нужна для заголовков; но чтобы не менять сигнатуру, читаем из env и admin_secret (compat)
+async def issue_token(request: AuthRequest, x_admin_secret: str = Header(None)):
+    """Выдача access/refresh токенов. Требует ADMIN_SECRET в заголовке X-Admin-Secret."""
     expected = os.getenv("ADMIN_SECRET")
-    provided = admin_secret  # совместимость для прямых вызовов
-    try:
-        # Попытка достать заголовок, если контекст позволяет
-        # (обратная совместимость: допускаем параметр admin_secret) 
-        pass
-    except Exception:
-        pass
-    if expected:
-        # Если секрет задан, требуем совпадение
-        headers_secret = expected if provided == expected else None
-        if not (provided == expected or headers_secret):
-            raise HTTPException(status_code=403, detail="Forbidden")
+    
+    # В production всегда требуем секрет
+    if os.getenv("ENVIRONMENT", "production") == "production":
+        if not expected:
+            raise HTTPException(
+                status_code=500, 
+                detail="ADMIN_SECRET not configured"
+            )
+        if not x_admin_secret or x_admin_secret != expected:
+            raise HTTPException(
+                status_code=403, 
+                detail="Invalid or missing X-Admin-Secret header"
+            )
     else:
-        logger.warning("ADMIN_SECRET не задан: token issuance открыт (dev mode)")
+        # В development режиме предупреждаем, но разрешаем
+        if not expected:
+            logger.warning("ADMIN_SECRET не задан в development mode")
+        elif x_admin_secret != expected:
+            raise HTTPException(status_code=403, detail="Invalid X-Admin-Secret")
+    
     # Формируем payload
     data = {"sub": request.user_id, "role": request.role or Role.USER, "scopes": request.scopes or []}
     expires = timedelta(minutes=request.expires_minutes) if request.expires_minutes else None
@@ -1267,6 +1312,6 @@ if __name__ == "__main__":
         "api.main:app",
         host="0.0.0.0",
         port=8000,
-        reload=True,
+        reload=os.getenv("ENVIRONMENT") == "development",
         log_level="info"
     )

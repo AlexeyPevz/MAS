@@ -6,6 +6,7 @@ from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime, timezone, timedelta
 from dataclasses import dataclass, field
 import json
+import os
 import numpy as np
 from pathlib import Path
 import asyncio
@@ -93,7 +94,9 @@ class LearningPolicy:
 class LearningLoop:
     """Основной цикл обучения системы"""
     
-    def __init__(self, storage_path: str = "/workspace/data/learning"):
+    def __init__(self, storage_path: str = None):
+        if storage_path is None:
+            storage_path = os.path.join(os.getenv("DATA_PATH", "/app/data"), "learning")
         self.storage_path = Path(storage_path)
         self.storage_path.mkdir(parents=True, exist_ok=True)
         

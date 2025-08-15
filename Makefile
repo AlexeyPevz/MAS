@@ -36,6 +36,32 @@ test:
 	@echo "🧪 Запуск тестов..."
 	./deploy.sh test
 
+test-cov:
+	@echo "🧪 Запуск тестов с покрытием..."
+	$(PYTHON) -m pytest tests/ -v --cov=. --cov-report=html --cov-report=term
+
+format:
+	@echo "🎨 Форматирование кода..."
+	$(PYTHON) -m black .
+	$(PYTHON) -m isort .
+
+format-check:
+	@echo "🎨 Проверка форматирования..."
+	$(PYTHON) -m black --check .
+	$(PYTHON) -m isort --check-only .
+
+typecheck:
+	@echo "🔍 Проверка типов..."
+	$(PYTHON) -m mypy . --ignore-missing-imports
+
+security-scan:
+	@echo "🔐 Сканирование безопасности..."
+	$(PYTHON) -m bandit -r . -f json -o bandit-report.json || true
+	$(PYTHON) -m pip-audit --desc > pip-audit-report.txt || true
+
+pre-commit: format lint typecheck test
+	@echo "✅ Все проверки пройдены!"
+
 # === Docker Commands ===
 build:
 	@echo "🏗️ Сборка Docker образа..."

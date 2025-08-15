@@ -5,12 +5,13 @@
 from typing import Dict, Any, Optional, List, Tuple
 import hashlib
 import json
+import os
 import time
 from datetime import datetime, timezone
 from dataclasses import dataclass, field
 import asyncio
 from collections import OrderedDict
-import pickle
+# import pickle  # Removed - using JSON instead for security
 import logging
 
 # Опциональные импорты
@@ -58,18 +59,46 @@ class SemanticCacheEntry:
     tokens_saved: int = 0
     cost_saved: float = 0.0
     similarity_score: float = 1.0  # Для отслеживания качества матчей
+    
+    def to_dict(self) -> dict:
+        """Конвертация в словарь для JSON"""
+        return {
+            'key': self.key,
+            'query': self.query,
+            'response': self.response,
+            'embedding': self.embedding,
+            'created_at': self.created_at,
+            'ttl': self.ttl,
+            'hits': self.hits,
+            'last_accessed': self.last_accessed,
+            'model': self.model,
+            'tokens_saved': self.tokens_saved,
+            'cost_saved': self.cost_saved,
+            'similarity_score': self.similarity_score
+        }
+    
+    @classmethod
+    def from_dict(cls, data: dict) -> 'SemanticCacheEntry':
+        """Создание из словаря"""
+        return cls(**data)
 
 class SemanticLLMCache:
     """Семантический кэш с использованием ChromaDB"""
     
     def __init__(
         self,
-        redis_url: str = "redis://localhost:6379",
-        chroma_collection: str = "llm_cache",
+        redis_url: str = None,
+        chroma_collection: str = "llm_cache", 
         similarity_threshold: float = 0.92,
         local_cache_size: int = 1000,
         default_ttl: int = 86400
     ):
+        # Используем redis_url из аргументов или строим из env
+        if redis_url is None:
+            redis_host = os.getenv('REDIS_HOST', 'localhost')
+            redis_port = os.getenv('REDIS_PORT', '6379')
+            redis_url = f"redis://{redis_host}:{redis_port}"
+        
         self.redis_url = redis_url
         self.redis_client = None
         self.similarity_threshold = similarity_threshold
@@ -256,7 +285,8 @@ class SemanticLLMCache:
         try:
             data = await self.redis_client.get(f"llm_cache:{key}")
             if data:
-                return pickle.loads(data)
+                json_data = json.loads(data)
+                return SemanticCacheEntry.from_dict(json_data)
         except Exception as e:
             logger.error(f"Redis get error: {e}")
         return None
@@ -294,7 +324,7 @@ class SemanticLLMCache:
                 await self.redis_client.setex(
                     f"llm_cache:{key}",
                     ttl,
-                    pickle.dumps(entry)
+                    json.dumps(entry.to_dict())
                 )
             except Exception as e:
                 logger.error(f"Redis save error: {e}")

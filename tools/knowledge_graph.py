@@ -6,9 +6,11 @@ from typing import Dict, Any, List, Optional, Set, Tuple
 from datetime import datetime, timezone
 from dataclasses import dataclass, field
 import json
+import os
 import networkx as nx
 from pathlib import Path
 import numpy as np
+from collections import Counter
 from collections import defaultdict
 
 from .event_sourcing import event_logger, EventType
@@ -55,7 +57,9 @@ class Relation:
 class KnowledgeGraph:
     """Граф знаний системы"""
     
-    def __init__(self, storage_path: str = "/workspace/data/knowledge_graph"):
+    def __init__(self, storage_path: str = None):
+        if storage_path is None:
+            storage_path = os.path.join(os.getenv("DATA_PATH", "/app/data"), "knowledge_graph")
         self.storage_path = Path(storage_path)
         self.storage_path.mkdir(parents=True, exist_ok=True)
         
@@ -338,7 +342,7 @@ class KnowledgeGraph:
                 for ctype, cids in self.concept_index.items()
             },
             "relation_types": dict(
-                nx.get_edge_attributes(self.graph, 'type').values()
+                Counter(nx.get_edge_attributes(self.graph, 'type').values())
             ),
             "avg_degree": sum(dict(self.graph.degree()).values()) / len(self.graph) if len(self.graph) > 0 else 0,
             "connected_components": nx.number_weakly_connected_components(self.graph),
