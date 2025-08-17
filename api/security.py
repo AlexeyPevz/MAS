@@ -25,7 +25,7 @@ def get_secret_key():
         return secret
     
     # Try to load from file
-    data_dir = Path(os.getenv('DATA_PATH', '/app/data'))
+    data_dir = Path(os.getenv('DATA_PATH', 'data'))
     data_dir.mkdir(parents=True, exist_ok=True)
     secret_file = data_dir / '.secret_key'
     

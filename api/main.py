@@ -15,8 +15,10 @@ from pathlib import Path
 
 import httpx
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Depends, BackgroundTasks, Header
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Depends, BackgroundTasks, Header, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -311,6 +313,12 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "X-Admin-Secret"],
 )
 
+# Security middlewares (optional via env)
+if os.getenv("TRUSTED_HOSTS"):
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=os.getenv("TRUSTED_HOSTS").split(","))
+if os.getenv("ENFORCE_HTTPS", "false").lower() in {"1", "true", "yes"}:
+    app.add_middleware(HTTPSRedirectMiddleware)
+
 # Путь к PWA статике
 pwa_path = Path(__file__).resolve().parent.parent / "pwa"
 if pwa_path.exists():
@@ -428,14 +436,21 @@ async def health_check():
 
 from tools.yandex_speechkit import speechkit, process_voice_message, synthesize_response
 
+class TtsRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=5000)
+
 @app.post("/api/v1/voice/stt")
-async def speech_to_text(audio_file: bytes):
+async def speech_to_text(audio_file: UploadFile = File(...)):
     """Распознавание речи в текст"""
     try:
         if not speechkit.is_configured():
             raise HTTPException(status_code=503, detail="SpeechKit не настроен")
         
-        text = await speechkit.speech_to_text(audio_file)
+        # Basic validation
+        if audio_file.size is not None and audio_file.size > 10 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="Файл слишком большой")
+        content = await audio_file.read()
+        text = await speechkit.speech_to_text(content)
         
         if text:
             return {"text": text, "status": "success"}
@@ -448,15 +463,13 @@ async def speech_to_text(audio_file: bytes):
 
 
 @app.post("/api/v1/voice/tts")
-async def text_to_speech(request: dict):
+async def text_to_speech(request: TtsRequest):
     """Синтез речи из текста"""
     try:
         if not speechkit.is_configured():
             raise HTTPException(status_code=503, detail="SpeechKit не настроен")
         
-        text = request.get("text", "")
-        if not text:
-            raise HTTPException(status_code=400, detail="Текст не указан")
+        text = request.text
         
         audio_data = await speechkit.text_to_speech(text)
         
@@ -476,11 +489,14 @@ async def text_to_speech(request: dict):
 
 
 @app.post("/api/v1/voice/chat", response_model=ChatResponse)
-async def voice_chat(audio_file: bytes, user_id: str = "voice_user"):
+async def voice_chat(audio_file: UploadFile = File(...), user_id: str = "voice_user"):
     """Голосовой чат: STT -> Chat -> TTS"""
     try:
         # 1. Распознаем речь
-        text = await process_voice_message(audio_file)
+        if audio_file.size is not None and audio_file.size > 10 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="Файл слишком большой")
+        content = await audio_file.read()
+        text = await process_voice_message(content)
         if not text or text.startswith("❌") or text.startswith("🔧"):
             raise HTTPException(status_code=400, detail=text or "Ошибка распознавания")
         
@@ -526,6 +542,11 @@ async def simple_chat(message: ChatMessage, current_user: dict | None = None):
     except Exception as e:
         logger.error(f"❌ Ошибка обработки сообщения: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# Alias endpoint for compatibility with docs/tests
+@app.post("/api/v1/chat", response_model=ChatResponse, dependencies=[Depends(rate_limit_dependency)])
+async def chat_alias(message: ChatMessage, current_user: dict | None = None):
+    return await simple_chat(message, current_user)
 
 
 @app.post("/api/v1/chat/message", response_model=ChatResponse, dependencies=[Depends(rate_limit_dependency)])
@@ -967,7 +988,7 @@ async def registry_apps():
 
 @app.get("/api/v1/registry/instances")
 async def registry_instances():
-    return list_instances()
+    raise HTTPException(status_code=501, detail="Instances registry not implemented")
 
 
 @app.get("/api/v1/registry/tools/{name}/versions")
@@ -987,7 +1008,7 @@ async def registry_app_versions(key: str):
 
 @app.get("/api/v1/registry/instances/{key}/versions")
 async def registry_instance_versions(key: str):
-    return get_instance_versions(key)
+    raise HTTPException(status_code=501, detail="Instances registry not implemented")
 
 
 @app.post("/api/v1/registry/tools/{name}/rollback")
@@ -1060,7 +1081,22 @@ async def registry_instance_rollback(
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     """WebSocket для real-time коммуникации"""
-    await websocket.accept()
+    # Simple auth: token via query param ?token= or header Authorization: Bearer
+    try:
+        token = websocket.query_params.get("token")
+        if not token:
+            auth_header = websocket.headers.get("authorization") or websocket.headers.get("Authorization")
+            if auth_header and auth_header.lower().startswith("bearer "):
+                token = auth_header.split(" ", 1)[1]
+        if not token:
+            await websocket.close(code=1008)
+            return
+        # Verify token
+        security_manager.verify_token(token)
+        await websocket.accept()
+    except Exception:
+        await websocket.close(code=1008)
+        return
     api_state.websocket_connections.append(websocket)
     
     try:
@@ -1160,7 +1196,20 @@ async def get_active_flows():
 @app.websocket("/ws/visualization")
 async def visualization_websocket(websocket: WebSocket):
     """WebSocket для визуализации мыслительного процесса"""
-    await visualization_manager.connect(websocket)
+    try:
+        token = websocket.query_params.get("token")
+        if not token:
+            auth_header = websocket.headers.get("authorization") or websocket.headers.get("Authorization")
+            if auth_header and auth_header.lower().startswith("bearer "):
+                token = auth_header.split(" ", 1)[1]
+        if not token:
+            await websocket.close(code=1008)
+            return
+        security_manager.verify_token(token)
+        await visualization_manager.connect(websocket)
+    except Exception:
+        await websocket.close(code=1008)
+        return
     try:
         while True:
             # Ожидаем сообщений от клиента (ping/pong, настройки и т.д.)

@@ -96,7 +96,7 @@ class LearningLoop:
     
     def __init__(self, storage_path: str = None):
         if storage_path is None:
-            storage_path = os.path.join(os.getenv("DATA_PATH", "/app/data"), "learning")
+            storage_path = os.path.join(os.getenv("DATA_PATH", "data"), "learning")
         self.storage_path = Path(storage_path)
         self.storage_path.mkdir(parents=True, exist_ok=True)
         

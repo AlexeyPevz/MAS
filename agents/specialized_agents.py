@@ -15,7 +15,7 @@ class ResearcherAgent(BaseAgent):
     def __init__(self, model: str = "gpt-4o-mini", tier: str = "standard"):
         super().__init__("researcher", model, tier)
     
-    async def research_topic(self, topic: str, max_results: int = 5) -> List[Dict[str, Any]]:
+    async def research_topic(self, topic: str, max_results: int = 5) -> Dict[str, Any]:
         """Исследовать тему"""
         # Ensure we have knowledge on the topic
         await self.ensure_knowledge(topic)

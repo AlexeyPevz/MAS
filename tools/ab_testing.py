@@ -10,7 +10,12 @@ import random
 import hashlib
 from pathlib import Path
 import statistics
-from scipy import stats
+try:
+    from scipy import stats  # type: ignore
+    _SCIPY_AVAILABLE = True
+except Exception:
+    stats = None  # type: ignore
+    _SCIPY_AVAILABLE = False
 import asyncio
 
 from .quality_metrics import quality_metrics, TaskResult
@@ -71,7 +76,11 @@ class Experiment:
 class ABTestingManager:
     """Менеджер A/B тестирования"""
     
-    def __init__(self, storage_path: str = "/workspace/data/ab_tests"):
+    def __init__(self, storage_path: str = None):
+        if storage_path is None:
+            import os
+            base = os.getenv("DATA_PATH", "data")
+            storage_path = str(Path(base) / "ab_tests")
         self.storage_path = Path(storage_path)
         self.storage_path.mkdir(parents=True, exist_ok=True)
         
@@ -296,18 +305,23 @@ class ABTestingManager:
                            [test_successes, test_total - test_successes]]
                 
                 try:
-                    chi2, p_value = stats.chi2_contingency(observed)[:2]
-                    
-                    if p_value < (1 - experiment.confidence_level):
-                        # Statistically significant
-                        improvement = (test_metrics["success_rate"] - control_metrics["success_rate"]) / control_metrics["success_rate"]
-                        
+                    if _SCIPY_AVAILABLE and stats is not None:
+                        chi2, p_value = stats.chi2_contingency(observed)[:2]
+                        significant = p_value < (1 - experiment.confidence_level)
+                    else:
+                        # Fallback: simple heuristic significance when sample sizes are large and delta is notable
+                        total = control_total + test_total
+                        delta = abs(test_metrics["success_rate"] - control_metrics["success_rate"]) if total > 0 else 0
+                        significant = (total >= max(50, experiment.min_sample_size)) and (delta >= 0.1)
+
+                    if significant:
+                        improvement = (test_metrics["success_rate"] - control_metrics["success_rate"]) / max(control_metrics["success_rate"], 1e-9)
                         if improvement > best_improvement:
                             best_improvement = improvement
                             best_variant = variant.id
                             has_winner = True
-                except:
-                    pass  # Not enough data
+                except Exception:
+                    pass  # Not enough data or computation unavailable
         
         return {
             "experiment_id": experiment_id,

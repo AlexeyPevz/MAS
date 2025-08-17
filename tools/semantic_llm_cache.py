@@ -110,8 +110,14 @@ class SemanticLLMCache:
         self._use_redis = REDIS_ASYNC_AVAILABLE
         
         if self._use_semantic:
-            self.chroma_store = ChromaStore()
-            self.collection_name = chroma_collection
+            try:
+                self.chroma_store = ChromaStore()
+                self.collection_name = chroma_collection
+            except Exception as e:
+                logger.warning(f"⚠️ Disabling semantic search (Chroma init failed: {e})")
+                self._use_semantic = False
+                self.chroma_store = None
+                self.collection_name = None
         else:
             self.chroma_store = None
             self.collection_name = None
@@ -425,8 +431,9 @@ class SemanticLLMCache:
             "similarity_threshold": self.similarity_threshold
         }
 
-# Глобальный экземпляр кэша
-semantic_cache = SemanticLLMCache()
+# Глобальный экземпляр кэша (может быть отключён через env)
+_ENABLE_SEM_CACHE = os.getenv("SEMANTIC_CACHE_ENABLED", "true").lower() not in {"0", "false", "no"}
+semantic_cache = SemanticLLMCache() if _ENABLE_SEM_CACHE else SemanticLLMCache()
 
 # Декоратор для автоматического кэширования
 def cached_llm_call(

@@ -200,7 +200,7 @@ async def process_voice_message(audio_data: bytes) -> Optional[str]:
     
     try:
         # Распознаем речь
-        text = await speechkit.speech_to_text(audio_data, format="ogg")
+        text = await speechkit.speech_to_text(audio_data, format="oggopus")
         
         if text:
             return text
