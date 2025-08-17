@@ -1,7 +1,7 @@
 """
 Security module for Root-MAS API
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 import secrets
 import hashlib
@@ -15,6 +15,7 @@ from functools import wraps
 import time
 import os
 from pathlib import Path
+import logging
 
 # Configuration
 def get_secret_key():
@@ -42,6 +43,8 @@ SECRET_KEY = get_secret_key()
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7
+TRUST_PROXY = os.getenv('TRUST_PROXY', 'false').lower() in {'1', 'true', 'yes'}
+logger = logging.getLogger(__name__)
 
 # Rate limiting configuration
 RATE_LIMIT_REQUESTS = int(os.getenv('RATE_LIMIT_REQUESTS', '100'))
@@ -156,19 +159,22 @@ class SecurityManager:
         self.rate_limiter = RateLimiter()
         self.bearer_scheme = HTTPBearer()
         self.blocked_tokens: set = set()
+        self.redis_client = redis_client or getattr(self.rate_limiter, 'redis_client', None)
     
     def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None):
         """Create JWT access token"""
         to_encode = data.copy()
         if expires_delta:
-            expire = datetime.utcnow() + expires_delta
+            expire = datetime.now(timezone.utc) + expires_delta
         else:
-            expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+            expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         
         to_encode.update({
             "exp": expire,
-            "iat": datetime.utcnow(),
-            "role": data.get("role", Role.USER)
+            "iat": datetime.now(timezone.utc),
+            "role": data.get("role", Role.USER),
+            "type": "access",
+            "jti": secrets.token_urlsafe(8),
         })
         
         encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
@@ -177,8 +183,8 @@ class SecurityManager:
     def create_refresh_token(self, data: dict):
         """Create JWT refresh token"""
         to_encode = data.copy()
-        expire = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
-        to_encode.update({"exp": expire, "type": "refresh"})
+        expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+        to_encode.update({"exp": expire, "type": "refresh", "jti": secrets.token_urlsafe(8)})
         encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
         return encoded_jwt
     
@@ -193,6 +199,14 @@ class SecurityManager:
                 )
             
             payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            # Check Redis-backed jti revocation
+            jti = payload.get("jti")
+            if jti and self.redis_client is not None:
+                try:
+                    if self.redis_client.get(f"revoked:{jti}"):
+                        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has been revoked")
+                except Exception:
+                    pass
             user_id: str = payload.get("sub")
             if user_id is None:
                 raise HTTPException(
@@ -203,11 +217,13 @@ class SecurityManager:
             return TokenData(user_id=user_id, scopes=payload.get("scopes", []), role=payload.get("role", Role.USER))
             
         except jwt.ExpiredSignatureError:
+            logger.warning("Auth failed: token expired")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has expired"
             )
         except jwt.JWTError:
+            logger.warning("Auth failed: invalid token")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token"
@@ -215,6 +231,20 @@ class SecurityManager:
     
     def revoke_token(self, token: str):
         """Revoke a token"""
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM], options={"verify_signature": False})
+            exp = payload.get("exp")
+            jti = payload.get("jti")
+            if self.redis_client is not None and jti and exp:
+                ttl = max(1, int(exp - time.time()))
+                try:
+                    self.redis_client.setex(f"revoked:{jti}", ttl, "1")
+                    return
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        # Fallback in-memory
         self.blocked_tokens.add(token)
     
     def hash_password(self, password: str) -> str:
@@ -281,9 +311,14 @@ def rate_limit(max_requests: int = 60, window: int = 60):
             request = kwargs.get('request')
             if request:
                 client_ip = request.client.host
+                if TRUST_PROXY:
+                    fwd = request.headers.get('x-forwarded-for') or request.headers.get('X-Forwarded-For')
+                    if fwd:
+                        client_ip = fwd.split(',')[0].strip()
                 key = f"rate_limit:{client_ip}"
                 
                 if not security_manager.rate_limiter.check_rate_limit(key, max_requests, window):
+                    logger.warning("Rate limit exceeded for %s", client_ip)
                     raise HTTPException(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                         detail="Rate limit exceeded"
@@ -318,6 +353,10 @@ def auth_user_dependency(current: TokenData = Depends(get_current_user)) -> dict
 def rate_limit_dependency(request: Request):
     """Rate limiting dependency"""
     client_ip = request.client.host
+    if TRUST_PROXY:
+        fwd = request.headers.get('x-forwarded-for') or request.headers.get('X-Forwarded-For')
+        if fwd:
+            client_ip = fwd.split(',')[0].strip()
     endpoint = request.url.path
     
     # Use combination of IP and endpoint for rate limiting
@@ -328,6 +367,7 @@ def rate_limit_dependency(request: Request):
         RATE_LIMIT_REQUESTS, 
         RATE_LIMIT_WINDOW
     ):
+        logger.warning("Rate limit exceeded for %s on %s", client_ip, endpoint)
         raise HTTPException(
             status_code=429,
             detail=f"Rate limit exceeded. Max {RATE_LIMIT_REQUESTS} requests per {RATE_LIMIT_WINDOW} seconds."

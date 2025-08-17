@@ -1330,6 +1330,15 @@ async def refresh_token(payload: RefreshRequest):
         user_id = decoded.get("sub")
         role = decoded.get("role", Role.USER)
         scopes = decoded.get("scopes", [])
+        # Revoke old refresh by jti if available
+        try:
+            jti = decoded.get("jti")
+            exp = decoded.get("exp")
+            if jti and getattr(security_manager, 'redis_client', None) is not None and exp:
+                ttl = max(1, int(exp - time.time()))
+                security_manager.redis_client.setex(f"revoked:{jti}", ttl, "1")
+        except Exception:
+            pass
         access = security_manager.create_access_token({"sub": user_id, "role": role, "scopes": scopes})
         new_refresh = security_manager.create_refresh_token({"sub": user_id, "role": role, "scopes": scopes})
         return AuthTokenModel(access_token=access, refresh_token=new_refresh)
