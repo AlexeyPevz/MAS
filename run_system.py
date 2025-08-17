@@ -79,6 +79,31 @@ def cleanup_old_processes():
 async def main():
     """Главная функция запуска системы"""
     
+    # Проверяем lock-файл для предотвращения множественных запусков
+    lock_file = Path("run_system.lock")
+    if lock_file.exists():
+        # Проверяем, жив ли процесс
+        try:
+            with open(lock_file, 'r') as f:
+                old_pid = int(f.read().strip())
+            
+            # Проверяем существование процесса
+            try:
+                os.kill(old_pid, 0)  # Не убивает, только проверяет
+                print(f"❌ Система уже запущена (PID: {old_pid})")
+                print("   Используйте 'kill' для остановки или удалите run_system.lock")
+                sys.exit(1)
+            except ProcessLookupError:
+                # Процесс не существует, удаляем старый lock
+                lock_file.unlink()
+        except Exception:
+            # Ошибка чтения lock-файла, удаляем его
+            lock_file.unlink()
+    
+    # Создаем новый lock-файл
+    with open(lock_file, 'w') as f:
+        f.write(str(os.getpid()))
+    
     # Настраиваем обработчик SIGCHLD для предотвращения зомби
     def handle_sigchld(signum, frame):
         try:
@@ -92,8 +117,8 @@ async def main():
     
     signal.signal(signal.SIGCHLD, handle_sigchld)
     
-    # Очищаем старые процессы
-    cleanup_old_processes()
+    # Очищаем старые процессы (только если нет активного lock-файла)
+    # cleanup_old_processes()  # Временно отключено для отладки
     
     # Настройка логирования с ротацией
     from tools.logging_config import setup_production_logging, setup_development_logging, log_monitor
@@ -152,6 +177,13 @@ async def main():
         def signal_handler(signum, frame):
             logger.info(f"🛑 Получен сигнал {signum}, останавливаем систему...")
             stop_event.set()
+            # Удаляем lock-файл при получении сигнала
+            lock_file = Path("run_system.lock")
+            if lock_file.exists():
+                try:
+                    lock_file.unlink()
+                except Exception:
+                    pass
         
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
@@ -178,11 +210,23 @@ async def main():
         
         logger.info("✅ Все компоненты остановлены")
         
+        # Даем время на завершение всех операций
+        await asyncio.sleep(0.5)
+        
     except Exception as e:
         logger.error(f"❌ Критическая ошибка: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)
+    finally:
+        # Удаляем lock-файл
+        lock_file = Path("run_system.lock")
+        if lock_file.exists():
+            try:
+                lock_file.unlink()
+                logger.info("🔓 Lock-файл удален")
+            except Exception as e:
+                logger.error(f"❌ Ошибка удаления lock-файла: {e}")
 
 
 async def run_api_server():

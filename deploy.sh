@@ -260,8 +260,10 @@ WorkingDirectory=$(pwd)
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
 ExecStart=$(which python3) run_system.py
 ExecStop=/bin/kill -TERM \$MAINPID
-Restart=always
-RestartSec=10
+Restart=on-failure
+RestartSec=30
+StartLimitBurst=3
+StartLimitIntervalSec=600
 
 [Install]
 WantedBy=multi-user.target
