@@ -62,18 +62,7 @@ def create_llm_config(model_name: str = "gpt-4o-mini", provider: str = "openrout
     
     else:
         # Fallback конфигурация для режима без API
-        print(f"⚠️ OPENROUTER_API_KEY не найден, используем mock конфигурацию")
-        return {
-            "config_list": [{
-                "model": "mock-model",
-                "api_key": "mock-key",
-                "base_url": "http://localhost:11434/v1",  # Ollama fallback
-                "temperature": 0.7,
-                "max_tokens": 2000
-            }],
-            "timeout": 60,
-            "cache_seed": None,
-        }
+        raise ValueError("OPENROUTER_API_KEY не найден. Установите переменную окружения.")
 
 
 def get_model_by_tier(tier: str = "cheap", attempt: int = 0) -> Dict[str, Any]:

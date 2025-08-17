@@ -56,12 +56,49 @@ async def websocket_endpoint(websocket: WebSocket):
 @router.websocket("/ws/visualization")
 async def websocket_visualization(websocket: WebSocket):
     """WebSocket для визуализации мыслительного процесса агентов"""
-    # TODO: Implement visualization websocket
     await websocket.accept()
+    
+    # Store connection
+    connections = getattr(websocket_visualization, '_connections', set())
+    connections.add(websocket)
+    websocket_visualization._connections = connections
+    
     try:
         while True:
             data = await websocket.receive_text()
-            # Process visualization commands
-            await websocket.send_json({"status": "not_implemented"})
+            try:
+                message = json.loads(data)
+                
+                if message.get("type") == "ping":
+                    await websocket.send_json({"type": "pong"})
+                    
+                elif message.get("type") == "subscribe":
+                    flow_id = message.get("flow_id")
+                    if flow_id:
+                        # Subscribe to flow updates
+                        await websocket.send_json({
+                            "type": "subscribed",
+                            "flow_id": flow_id
+                        })
+                        
+                elif message.get("type") == "get_agent_profiles":
+                    # Get agent profiles
+                    from config.config_loader import load_config
+                    config = load_config()
+                    agents = list(config.get('agents', {}).keys())
+                    
+                    await websocket.send_json({
+                        "type": "agent_profiles",
+                        "data": agents
+                    })
+                    
+            except json.JSONDecodeError:
+                await websocket.send_json({
+                    "type": "error",
+                    "message": "Invalid JSON"
+                })
+                
     except WebSocketDisconnect:
-        pass
+        # Remove connection
+        if hasattr(websocket_visualization, '_connections'):
+            websocket_visualization._connections.discard(websocket)

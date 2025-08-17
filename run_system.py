@@ -19,6 +19,9 @@ sys.path.insert(0, str(project_root))
 from dotenv import load_dotenv
 load_dotenv()
 
+# Импортируем централизованные настройки
+from config.settings import validate_required_settings, ENVIRONMENT, API_HOST, API_PORT
+
 
 def cleanup_old_processes():
     """Очистка старых процессов перед запуском"""
@@ -111,16 +114,11 @@ async def main():
         # Создаем директории
         os.makedirs("logs", exist_ok=True)
         
-        # Проверяем переменные окружения
-        required_vars = ["OPENROUTER_API_KEY"]
-        missing_vars = []
-        
-        for var in required_vars:
-            if not os.getenv(var):
-                missing_vars.append(var)
-        
-        if missing_vars:
-            logger.error(f"❌ Отсутствуют переменные окружения: {missing_vars}")
+        # Проверяем обязательные настройки
+        errors = validate_required_settings()
+        if errors:
+            for error in errors:
+                logger.error(f"❌ {error}")
             sys.exit(1)
         
         # Определяем режим запуска
@@ -160,8 +158,9 @@ async def main():
         
         logger.info("✅ Все компоненты запущены!")
         logger.info("📝 Для остановки нажмите Ctrl+C")
-        logger.info("🌐 API доступен на: http://localhost:8000")
-        logger.info("📊 API документация: http://localhost:8000/docs")
+        api_port = int(os.getenv("API_PORT", "8000"))
+        logger.info(f"🌐 API доступен на: http://localhost:{api_port}")
+        logger.info(f"📊 API документация: http://localhost:{api_port}/docs")
         
         # Ожидание сигнала остановки
         await stop_event.wait()
@@ -193,9 +192,9 @@ async def run_api_server():
     
     config = uvicorn.Config(
         app,
-        host="0.0.0.0",
-        port=8000,
-        log_level="info",
+        host=API_HOST,
+        port=API_PORT,
+        log_level=os.getenv("LOG_LEVEL", "info").lower(),
         access_log=True
     )
     
@@ -229,7 +228,8 @@ async def run_telegram_bot():
     
     try:
         # Создаем callback через API
-        api_callback, api_client = create_api_callback("http://localhost:8000")
+        api_port = int(os.getenv("API_PORT", "8000"))
+        api_callback, api_client = create_api_callback(f"http://localhost:{api_port}")
         
         if enable_streaming:
             # Используем streaming версию бота

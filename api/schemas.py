@@ -43,3 +43,13 @@ class ProjectInfo(BaseModel):
 
 class TtsRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=5000)
+
+
+class AgentProfile(BaseModel):
+    id: str
+    name: str
+    role: str
+    description: str
+    capabilities: List[str] = []
+    avatar: str = ""
+    status: str = "active"

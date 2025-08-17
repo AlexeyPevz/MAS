@@ -48,5 +48,29 @@ async def get_studio_logs(
 @router.get("/visualization/flows")
 async def get_visualization_flows():
     """Получение активных потоков визуализации"""
-    # TODO: Implement actual flow tracking
-    return {"flows": [], "total": 0}
+    try:
+        # Get flows from memory store
+        from memory.redis_store import RedisStore
+        store = RedisStore(use_fallback=True)
+        
+        # Get all active flows
+        flows_key = "visualization:flows:*"
+        flows = []
+        
+        # Get all flow keys
+        try:
+            import json
+            # For in-memory store, we'll use a simple approach
+            all_keys = store.keys(flows_key)
+            for key in all_keys:
+                flow_data = store.get(key)
+                if flow_data:
+                    flow = json.loads(flow_data)
+                    flows.append(flow)
+        except Exception:
+            pass
+        
+        return {"flows": flows, "total": len(flows)}
+        
+    except Exception as e:
+        return {"flows": [], "total": 0, "error": str(e)}
