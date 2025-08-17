@@ -11,8 +11,8 @@ router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 
 class AuthRequest(BaseModel):
-    user_id: str = Field(..., regex=r'^[a-zA-Z0-9_-]+$', max_length=100)
-    role: str = Field(default=Role.USER, regex=r'^(admin|user|agent|readonly)$')
+    user_id: str = Field(..., pattern=r'^[a-zA-Z0-9_-]+$', max_length=100)
+    role: str = Field(default=Role.USER, pattern=r'^(admin|user|agent|readonly)$')
     scopes: list[str] = []
     expires_minutes: int | None = Field(default=None, ge=1, le=10080)
 

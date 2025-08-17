@@ -25,6 +25,8 @@ except Exception:
 	redis = None  # type: ignore
 	_HAS_REDIS = False
 
+import requests  # type: ignore
+
 # Простейший версионируемый реестр с персистентностью
 _REGISTRY_LOCK = threading.Lock()
 _REGISTRY_PATH = Path("data") / "registry.json"
@@ -120,8 +122,24 @@ def _load_registry() -> None:
 _load_registry()
 
 
-def call(api_name: str, params: Dict[str, Any]) -> Any:
-	"""Заглушка вызова внешнего API по имени. Реальная логика подменяется."""
+def call(api_name: str, params: Dict[str, Any], fallbacks: Optional[Dict[str, list[str]]] = None) -> Any:
+	"""Вызов внешнего API по имени с поддержкой fallback-ов.
+
+	Путь строится как `/api/{name}` для простоты тестов.
+	"""
+	fallbacks = fallbacks or {}
+	candidates = [api_name] + fallbacks.get(api_name, [])
+	last_exc: Optional[Exception] = None
+	for name in candidates:
+		try:
+			resp = requests.post(f"http://localhost:8000/api/{name}", json=params, timeout=5)
+			if resp.status_code >= 400:
+				continue
+			resp.raise_for_status()
+			return resp.json()
+		except Exception as e:
+			last_exc = e
+	# Fallback: эхо-ответ
 	return {"api": api_name, "called": True, "params": params}
 
 

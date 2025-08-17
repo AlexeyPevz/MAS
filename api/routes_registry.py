@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from .security import auth_user_dependency
 from .services import registry as registry_service
+from .security import require_permission
 
 router = APIRouter(prefix="/api/v1/registry", tags=["registry"])
 
@@ -26,15 +27,18 @@ async def instances():
 
 
 @router.post("/tools/{name}/rollback")
+@require_permission("admin")
 async def tool_rollback(name: str, target_version: int | None = None, current_user: dict = Depends(auth_user_dependency)):
     return await registry_service.rollback_tool(name, target_version, current_user)
 
 
 @router.post("/workflows/{key}/rollback")
+@require_permission("admin")
 async def wf_rollback(key: str, target_version: int | None = None, current_user: dict = Depends(auth_user_dependency)):
     return await registry_service.rollback_workflow(key, target_version, current_user)
 
 
 @router.post("/apps/{key}/rollback")
+@require_permission("admin")
 async def app_rollback(key: str, target_version: int | None = None, current_user: dict = Depends(auth_user_dependency)):
     return await registry_service.rollback_app(key, target_version, current_user)
