@@ -16,7 +16,11 @@ logger = logging.getLogger(__name__)
 class TelegramAPIClient:
     """Клиент для работы с Root-MAS API из Telegram бота"""
     
-    def __init__(self, api_base_url: str = "http://localhost:8000"):
+    def __init__(self, api_base_url: str = None):
+        if api_base_url is None:
+            import os
+            api_port = int(os.getenv("API_PORT", "8000"))
+            api_base_url = f"http://localhost:{api_port}"
         self.api_base_url = api_base_url.rstrip("/")
         self.session: Optional[aiohttp.ClientSession] = None
     
@@ -162,7 +166,7 @@ class TelegramAPIClient:
 
 
 # Функция для создания callback для Telegram бота
-def create_api_callback(api_base_url: str = "http://localhost:8000"):
+def create_api_callback(api_base_url: str = None):
     """Создает callback функцию для Telegram бота"""
     
     api_client = TelegramAPIClient(api_base_url)

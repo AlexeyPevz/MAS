@@ -320,8 +320,12 @@ class VoiceProcessingCoordinator:
             # В реальной системе здесь был бы механизм подписки на результаты
             await asyncio.sleep(0.1)  # Даем время на обработку
             
-            # Для примера возвращаем mock результат
-            transcribed_text = f"[Распознано из {len(audio_data)} байт]"
+            # Получаем результат распознавания
+            result = await self._wait_for_task_result(task_id, timeout=30)
+            if not result or result.get("status") != "completed":
+                raise RuntimeError("Не удалось получить результат распознавания")
+            
+            transcribed_text = result.get("text", "")
             
             # Если нужен голосовой ответ
             audio_response = None
@@ -367,6 +371,18 @@ class VoiceProcessingCoordinator:
             
         return stats
     
+    async def _wait_for_task_result(self, task_id: str, timeout: int = 30) -> Optional[Dict[str, Any]]:
+        """Ожидание результата задачи"""
+        start_time = asyncio.get_event_loop().time()
+        
+        while asyncio.get_event_loop().time() - start_time < timeout:
+            result = self.task_results.get(task_id)
+            if result and result.get("status") in ["completed", "failed"]:
+                return result
+            await asyncio.sleep(0.1)
+        
+        return None
+    
     async def shutdown(self):
         """Остановка системы"""
         if self.runtime_task:
@@ -391,23 +407,24 @@ async def example_usage():
     await coordinator.initialize()
     
     # Пример обработки
-    mock_audio = b"mock_audio_data_here"
+    # В реальном использовании audio_data должны быть получены из файла или потока
+    # Например: audio_data = await read_audio_file("voice.ogg")
     
     # Callback для обработки текста
     async def process_text(text: str) -> str:
         return f"Вы сказали: {text}"
     
-    # Обрабатываем голосовое сообщение
-    text, audio_response = await coordinator.process_voice_message(
-        audio_data=mock_audio,
-        user_id="test_user",
-        chat_id="test_chat",
-        process_response=True,
-        response_callback=process_text
-    )
+    # Пример: обработка реального аудио файла
+    # with open("voice_message.ogg", "rb") as f:
+    #     audio_data = f.read()
+    #     user_id="test_user",
+    #     chat_id="test_chat",
+    #     process_response=True,
+    #     response_callback=process_text
+    # )
     
-    print(f"Распознанный текст: {text}")
-    print(f"Аудио ответ: {len(audio_response) if audio_response else 0} байт")
+    # print(f"Распознанный текст: {text}")
+    # print(f"Аудио ответ: {len(audio_response) if audio_response else 0} байт")
     
     # Статистика
     stats = coordinator.get_stats()

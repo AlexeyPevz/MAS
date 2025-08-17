@@ -1,0 +1,1 @@
+# Core module for base components without circular dependencies

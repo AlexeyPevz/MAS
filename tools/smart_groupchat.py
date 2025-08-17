@@ -19,6 +19,9 @@ from .quality_metrics import quality_metrics, TaskResult
 from .ab_testing import ab_testing
 from .learning_loop import learning_loop
 
+# Import interface to implement
+from core.interfaces import IMessageProcessor
+
 
 @dataclass
 class Message:
@@ -35,7 +38,7 @@ class Message:
             self.metadata = {}
 
 
-class SmartGroupChatManager:
+class SmartGroupChatManager(IMessageProcessor):
     """Продвинутый менеджер групповых чатов"""
     
     def __init__(self, agents: Dict[str, Any] = None, routing: Dict[str, List[str]] = None):
@@ -159,10 +162,17 @@ class SmartGroupChatManager:
             # Генерируем ответ от агента (async‑путь для v0.9+)
             if hasattr(agent, 'generate_reply_async') and asyncio.iscoroutinefunction(getattr(agent, 'generate_reply_async')):
                 try:
-                    response_obj = await agent.generate_reply_async(
-                        messages=context,
-                        sender=None
-                    )
+                    # Применяем retry для LLM вызовов
+                    from core.retry import async_retry
+                    
+                    @async_retry(config="llm")
+                    async def _generate_reply():
+                        return await agent.generate_reply_async(
+                            messages=context,
+                            sender=None
+                        )
+                    
+                    response_obj = await _generate_reply()
                     response = response_obj.chat_message.content if hasattr(response_obj, 'chat_message') else str(response_obj)
                     
                     # Если ответ пустой или None
@@ -181,10 +191,15 @@ class SmartGroupChatManager:
             elif hasattr(agent, 'generate_reply') and callable(getattr(agent, 'generate_reply')):
                 # Легаси‑путь: синхронные агенты, исполняем в отдельном потоке чтобы не блокировать event loop
                 loop = asyncio.get_running_loop()
-                response = await loop.run_in_executor(
-                    None,
-                    lambda: agent.generate_reply(messages=context, sender=None)
-                )
+                
+                # Применяем retry для синхронных вызовов
+                from core.retry import sync_retry
+                
+                @sync_retry(config="llm")
+                def _sync_generate_reply():
+                    return agent.generate_reply(messages=context, sender=None)
+                
+                response = await loop.run_in_executor(None, _sync_generate_reply)
                 if not response:
                     response = f"[{agent_name}] Сообщение обработано"
             else:
@@ -494,6 +509,19 @@ class SmartGroupChatManager:
             handle_event(name, *args, **kwargs)
         except Exception as exc:
             self.logger.error("❌ Ошибка обработки события %s от %s: %s", event, sender, exc)
+    
+    # Методы для реализации интерфейса IMessageProcessor
+    async def process_message(self, message: str, user_id: str = "default") -> str:
+        """Реализация интерфейса IMessageProcessor - обработка сообщения"""
+        return await self.process_user_message(message, user_id)
+    
+    def get_agent_status(self) -> Dict[str, Any]:
+        """Реализация интерфейса IMessageProcessor - получение статуса агентов"""
+        return self.get_agent_statistics()
+    
+    def get_system_metrics(self) -> Dict[str, Any]:
+        """Реализация интерфейса IMessageProcessor - получение метрик системы"""
+        return self.get_system_status()
 
 
 class ConversationLogger:
