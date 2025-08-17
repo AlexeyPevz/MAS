@@ -309,10 +309,12 @@ try:
     from .routes_voice import router as voice_router
     from .routes_metrics import router as metrics_router
     from .routes_registry import router as registry_router
+    from .routes_auth import router as auth_router
     app.include_router(chat_router)
     app.include_router(voice_router)
     app.include_router(metrics_router)
     app.include_router(registry_router)
+    app.include_router(auth_router)
 except Exception:
     # Keep compatibility if partial files missing
     pass
