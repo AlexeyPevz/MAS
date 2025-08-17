@@ -104,9 +104,10 @@ async def tool_use_example():
     def calculate(expression: str) -> str:
         """Вычислить математическое выражение"""
         try:
-            result = eval(expression)
+            import ast
+            result = ast.literal_eval(expression)
             return f"Результат: {result}"
-        except:
+        except Exception:
             return "Ошибка вычисления"
     
     # Создаем клиент модели

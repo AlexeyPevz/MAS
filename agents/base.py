@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, Optional, List
 import asyncio
+import json
 
 # Импорт AutoGen v0.4+ с поддержкой новых API
 # Fallback для случаев, если модули еще не установлены
@@ -111,8 +112,7 @@ class BaseAgent(AssistantAgent):
             **kwargs
         )
         
-        # Cache for task-specific prompts: slug -> text
-        self._task_prompts: dict[str, str] = {}
+        # Cache for task-specific prompts is initialized earlier
         self._current_tier = tier
         self._current_model = model
         

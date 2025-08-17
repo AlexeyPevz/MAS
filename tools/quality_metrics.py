@@ -58,7 +58,7 @@ class QualityMetricsManager:
     
     def __init__(self, storage_path: str = None):
         if storage_path is None:
-            storage_path = os.path.join(os.getenv("DATA_PATH", "/app/data"), "metrics")
+            storage_path = os.path.join(os.getenv("DATA_PATH", "data"), "metrics")
         self.storage_path = Path(storage_path)
         self.storage_path.mkdir(parents=True, exist_ok=True)
         

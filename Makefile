@@ -1,3 +1,4 @@
+PYTHON ?= python3
 .PHONY: install lint test build deploy start stop restart status clean help
 
 # === Basic Commands ===
