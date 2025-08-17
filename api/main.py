@@ -310,11 +310,17 @@ try:
     from .routes_metrics import router as metrics_router
     from .routes_registry import router as registry_router
     from .routes_auth import router as auth_router
+    from .routes_cache import router as cache_router
+    from .routes_federation import router as federation_router
+    from .routes_misc import router as misc_router
     app.include_router(chat_router)
     app.include_router(voice_router)
     app.include_router(metrics_router)
     app.include_router(registry_router)
     app.include_router(auth_router)
+    app.include_router(cache_router)
+    app.include_router(federation_router)
+    app.include_router(misc_router)
 except Exception:
     # Keep compatibility if partial files missing
     pass
