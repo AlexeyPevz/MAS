@@ -23,6 +23,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from fastapi.security import HTTPAuthorizationCredentials
+from .settings import settings
 
 # Импорты MAS системы
 from tools.smart_groupchat import SmartGroupChatManager
@@ -326,19 +327,18 @@ except Exception:
     pass
 
 # CORS middleware
-cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
-    allow_credentials=True if os.getenv("ENVIRONMENT") == "development" else False,
+    allow_origins=settings.cors_origins,
+    allow_credentials=settings.allow_credentials,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Authorization", "Content-Type", "X-Admin-Secret"],
 )
 
-# Security middlewares (optional via env)
-if os.getenv("TRUSTED_HOSTS"):
-    app.add_middleware(TrustedHostMiddleware, allowed_hosts=os.getenv("TRUSTED_HOSTS").split(","))
-if os.getenv("ENFORCE_HTTPS", "false").lower() in {"1", "true", "yes"}:
+# Security middlewares from settings
+if settings.trusted_hosts:
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_hosts)
+if settings.enforce_https:
     app.add_middleware(HTTPSRedirectMiddleware)
 
 # Путь к PWA статике
