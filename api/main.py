@@ -303,6 +303,20 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Mount routers (progressive extraction)
+try:
+    from .routes_chat import router as chat_router
+    from .routes_voice import router as voice_router
+    from .routes_metrics import router as metrics_router
+    from .routes_registry import router as registry_router
+    app.include_router(chat_router)
+    app.include_router(voice_router)
+    app.include_router(metrics_router)
+    app.include_router(registry_router)
+except Exception:
+    # Keep compatibility if partial files missing
+    pass
+
 # CORS middleware
 cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")
 app.add_middleware(
