@@ -6,8 +6,9 @@ import logging
 import os
 from typing import Optional
 
-# Интеграция будет через существующие компоненты
-from tools.smart_groupchat import SmartGroupChatManager
+# Используем фабрику для избежания циклических зависимостей
+from core.factory import ComponentFactory
+from core.interfaces import IMessageProcessor
 
 
 logger = logging.getLogger(__name__)
@@ -18,7 +19,7 @@ class MASAPIIntegration:
     
     def __init__(self):
         self.mas_system: Optional[object] = None
-        self.mas_manager: Optional[SmartGroupChatManager] = None
+        self.mas_manager: Optional[IMessageProcessor] = None
         self._initialized = False
     
     async def initialize(self):
@@ -34,24 +35,30 @@ class MASAPIIntegration:
             
             if use_teams:
                 try:
-                    from tools.teams_groupchat_manager import TeamsGroupChatManager, TEAMS_API_AVAILABLE
-                    if TEAMS_API_AVAILABLE:
-                        logger.info("🏢 Используем Teams-enhanced GroupChat Manager")
-                        self.mas_manager = TeamsGroupChatManager()
+                    # Пытаемся импортировать Teams manager динамически
+                    import importlib.util
+                    spec = importlib.util.find_spec("tools.teams_groupchat_manager")
+                    if spec is not None:
+                        teams_module = importlib.import_module("tools.teams_groupchat_manager")
+                        if hasattr(teams_module, 'TEAMS_API_AVAILABLE') and teams_module.TEAMS_API_AVAILABLE:
+                            logger.info("🏢 Используем Teams-enhanced GroupChat Manager")
+                            self.mas_manager = teams_module.TeamsGroupChatManager()
+                        else:
+                            logger.warning("⚠️ Teams API недоступен, используем обычный менеджер")
+                            self.mas_manager = ComponentFactory.create("mas_manager")
                     else:
-                        logger.warning("⚠️ Teams API недоступен, используем обычный менеджер")
-                        from tools.smart_groupchat import SmartGroupChatManager
-                        self.mas_manager = SmartGroupChatManager()
-                except ImportError:
-                    logger.warning("⚠️ Не удалось импортировать Teams manager")
-                    from tools.smart_groupchat import SmartGroupChatManager
-                    self.mas_manager = SmartGroupChatManager()
+                        logger.warning("⚠️ Teams manager не найден")
+                        self.mas_manager = ComponentFactory.create("mas_manager")
+                except Exception as e:
+                    logger.warning(f"⚠️ Не удалось загрузить Teams manager: {e}")
+                    self.mas_manager = ComponentFactory.create("mas_manager")
             else:
-                # Создаем обычный менеджер
-                from tools.smart_groupchat import SmartGroupChatManager
-                self.mas_manager = SmartGroupChatManager()
+                # Создаем обычный менеджер через фабрику
+                self.mas_manager = ComponentFactory.create("mas_manager")
                 
-            await self.mas_manager.initialize()
+            # Инициализируем если есть метод initialize
+            if hasattr(self.mas_manager, 'initialize'):
+                await self.mas_manager.initialize()
             
             self._initialized = True
             logger.info("✅ MAS система инициализирована для API")
@@ -68,8 +75,8 @@ class MASAPIIntegration:
             await self.initialize()
         
         try:
-            # Обрабатываем сообщение через Communicator Agent
-            response = await self.mas_manager.process_user_message(message)
+            # Обрабатываем сообщение через интерфейс
+            response = await self.mas_manager.process_message(message, user_id)
             return response or "Сообщение обработано агентами"
             
         except Exception as e:
@@ -79,11 +86,11 @@ class MASAPIIntegration:
     def get_agent_status(self):
         """Получение статуса агентов"""
         if not self._initialized or not self.mas_manager:
-            return []
+            return {}
         
         try:
-            # Получаем статус агентов из менеджера
-            return self.mas_manager.get_agent_statistics()
+            # Получаем статус агентов через интерфейс
+            return self.mas_manager.get_agent_status()
         except Exception as e:
             logger.error(f"❌ Ошибка получения статуса агентов: {e}")
             return {}
@@ -94,7 +101,7 @@ class MASAPIIntegration:
             return {}
         
         try:
-            return self.mas_manager.get_system_status()
+            return self.mas_manager.get_system_metrics()
         except Exception as e:
             logger.error(f"❌ Ошибка получения метрик системы: {e}")
             return {}
@@ -102,8 +109,8 @@ class MASAPIIntegration:
     async def cleanup(self):
         """Очистка ресурсов"""
         try:
-            if self.mas_system:
-                await self.mas_system._cleanup()
+            if hasattr(self.mas_manager, 'cleanup'):
+                await self.mas_manager.cleanup()
             
             self._initialized = False
             logger.info("✅ MAS интеграция очищена")

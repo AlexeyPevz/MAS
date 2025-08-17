@@ -22,6 +22,18 @@ from memory.in_memory_store import InMemoryStore
 
 logger = logging.getLogger(__name__)
 
+# Import retry decorator if available
+try:
+    from core.retry import sync_retry
+    RETRY_AVAILABLE = True
+except ImportError:
+    RETRY_AVAILABLE = False
+    # Dummy decorator if retry not available
+    def sync_retry(config=None):
+        def decorator(func):
+            return func
+        return decorator
+
 
 class RedisStore:
     """Простейшая обёртка над redis-py."""
@@ -66,10 +78,12 @@ class RedisStore:
         fallback = InMemoryStore()
         self.client = fallback.client
 
+    @sync_retry(config="redis")
     def set(self, key: str, value: Any, ttl: int = 3600) -> None:
         """Сохранить значение в Redis с TTL (в секундах)."""
         self.client.setex(name=key, time=ttl, value=value)
 
+    @sync_retry(config="redis")
     def get(self, key: str) -> Optional[Any]:
         """Получить значение из Redis, если оно существует."""
         return self.client.get(key)
