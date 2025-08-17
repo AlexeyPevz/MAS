@@ -1,21 +1,20 @@
 from fastapi import APIRouter, UploadFile, File
-from fastapi import HTTPException
 from .schemas import TtsRequest, ChatResponse
-from . import main as api_main
+from .services import voice as voice_service
 
 router = APIRouter(prefix="/api/v1/voice", tags=["voice"])
 
 
 @router.post("/stt")
 async def stt(audio_file: UploadFile = File(...)):
-	return await api_main.speech_to_text(audio_file)
+    return await voice_service.stt(audio_file)
 
 
 @router.post("/tts")
 async def tts(request: TtsRequest):
-	return await api_main.text_to_speech(request)
+    return await voice_service.tts(request)
 
 
 @router.post("/chat", response_model=ChatResponse)
 async def voice_chat(audio_file: UploadFile = File(...), user_id: str = "voice_user"):
-	return await api_main.voice_chat(audio_file, user_id)
+    return await voice_service.chat(audio_file, user_id)
