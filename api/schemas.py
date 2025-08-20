@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 class ChatMessage(BaseModel):
     message: str = Field(..., min_length=1, max_length=10000, description="Message text")
-    user_id: Optional[str] = Field(default="api_user", regex=r'^[a-zA-Z0-9_-]+$', max_length=100)
+    user_id: Optional[str] = Field(default="api_user", pattern=r'^[a-zA-Z0-9_-]+$', max_length=100)
     metadata: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
 

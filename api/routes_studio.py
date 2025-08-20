@@ -9,7 +9,7 @@ router = APIRouter(prefix="/api/v1", tags=["studio"])
 
 @router.get("/studio/logs")
 async def get_studio_logs(
-    level: Optional[str] = Query("INFO", regex="^(DEBUG|INFO|WARNING|ERROR|CRITICAL)$"),
+    level: Optional[str] = Query("INFO", pattern="^(DEBUG|INFO|WARNING|ERROR|CRITICAL)$"),
     limit: int = Query(100, ge=1, le=1000),
     component: Optional[str] = None
 ):
